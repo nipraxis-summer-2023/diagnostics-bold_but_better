@@ -2,10 +2,13 @@
 """
 
 from pathlib import Path
+import nibabel as nib
+import sys
 
-
-def detect_outliers(fname):
-    return [42]
+# Put the detect_outliers directory on the Python path.
+PACKAGE_DIR = Path(__file__).parent
+sys.path.append(str(PACKAGE_DIR))
+import detect_outliers as do
 
 
 def find_outliers(data_directory):
@@ -22,9 +25,13 @@ def find_outliers(data_directory):
         Dictionary with keys being filenames and values being lists of outliers
         for filename.
     """
+
     image_fnames = Path(data_directory).glob('**/sub-*.nii.gz')
     outlier_dict = {}
     for fname in image_fnames:
-        outliers = detect_outliers(fname)
+        img = nib.load(fname)  # Loads the file
+        data = img.get_fdata()  # Gets the data from the file
+        
+        outliers = do.detect_outliers(data)
         outlier_dict[fname] = outliers
     return outlier_dict
