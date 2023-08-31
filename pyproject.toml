@@ -6,7 +6,7 @@ build-backend = "flit_core.buildapi"
 module = "findoutlie"
 author = "The team"
 author-email = "team@email"
-home-page = "https://github.com/nipraxis-fall-2022/diagnostics-example"
+home-page = "https://github.com/nipraxis-fall-2023/diagnostics-example"
 classifiers = ["License :: OSI Approved :: BSD License",
                "Programming Language :: Python :: 3"]
 description-file="README.md"
