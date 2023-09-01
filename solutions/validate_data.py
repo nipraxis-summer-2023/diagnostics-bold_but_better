@@ -2,10 +2,10 @@
 
 Run as:
 
-    python3 scripts/validata_data.py data
+    python3 scripts/validate_data.py data
 """
 
-import op as op
+from pathlib import Path
 import sys
 import hashlib
 
@@ -26,8 +26,7 @@ def file_hash(filename):
     # Open the file, read contents as bytes.
     # Calculate, return SHA1 has on the bytes from the file.
     # LAB(begin solution)
-    with open(filename, 'rb') as fobj:
-        contents = fobj.read()
+    contents = Path(filename).read_bytes()
     return hashlib.sha1(contents).hexdigest()
     # LAB(replace solution)
     # This is a placeholder, replace it to write your solution.
@@ -60,11 +59,13 @@ def validate_data(data_directory):
     # If hash for filename is not the same as the one in the file, raise
     # ValueError
     # LAB(begin solution)
-    for line in open(op.join(data_directory, 'data_hashes.txt'), 'rt'):
+    data_path = Path(data_directory)
+    contents = (data_path / 'data_hashes.txt').read_text()
+    for line in contents.splitlines():
         # Split into SHA1 hash and filename
         hash, filename = line.strip().split()
         # Calculate actual hash for given filename.
-        actual_hash = file_hash(op.join(data_directory, filename))
+        actual_hash = file_hash(data_path / filename)
         # If hash for filename is not the same as the one in the file, raise
         # ValueError
         if hash != actual_hash:
