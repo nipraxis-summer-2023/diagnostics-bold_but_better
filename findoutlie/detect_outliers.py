@@ -7,8 +7,13 @@ import nibabel as nib
 
 
 def vol_mean(data):
-    """
-    Calculates the mean of the volume of the data
+    """     Calculates the mean of the volume of the data
+    
+    Parameters: a nibabel object
+    data: a nibable image 4D fMRI data with many volumes
+    --------
+    Returns: list
+    a list of means per volume in the data
     """
     return [
         np.mean(data[..., vol])
