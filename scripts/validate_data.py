@@ -9,6 +9,11 @@ from pathlib import Path
 import sys
 import hashlib
 
+# add necessary directories to python's search path at runtime
+PACKAGE_DIR = Path(__file__).parent / '..'
+sys.path.append(str(PACKAGE_DIR))
+
+
 
 def file_hash(filename):
     """ Get byte contents of file `filename`, return SHA1 hash

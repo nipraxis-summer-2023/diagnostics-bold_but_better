@@ -6,19 +6,19 @@ Run as:
 """
 
 from pathlib import Path
-import sys
-
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
-# Put the findoutlie directory on the Python path.
+# add necessary directories to python's search path at runtime
+import sys
 PACKAGE_DIR = Path(__file__).parent / '..'
 sys.path.append(str(PACKAGE_DIR))
 
-from findoutlie import outfind
+
+from findoutlie import find_outliers
 
 
 def print_outliers(data_directory):
-    outlier_dict = outfind.find_outliers(data_directory)
+    outlier_dict = find_outliers(data_directory)
     for fname, outliers in outlier_dict.items():
         if len(outliers) == 0:
             continue

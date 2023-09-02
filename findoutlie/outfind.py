@@ -3,12 +3,13 @@
 
 from pathlib import Path
 import nibabel as nib
-import sys
 
+# import sys
 # Put the detect_outliers directory on the Python path.
-PACKAGE_DIR = Path(__file__).parent
-sys.path.append(str(PACKAGE_DIR))
-import detect_outliers as do
+# PACKAGE_DIR = Path(__file__).parent
+# sys.path.append(str(PACKAGE_DIR))
+
+from .detect_outliers import detect_outliers
 
 
 def find_outliers(data_directory):
@@ -32,6 +33,6 @@ def find_outliers(data_directory):
         img = nib.load(fname)  # Loads the file
         data = img.get_fdata()  # Gets the data from the file
         
-        outliers = do.detect_outliers(data)
+        outliers = detect_outliers(data)
         outlier_dict[fname] = outliers
     return outlier_dict
