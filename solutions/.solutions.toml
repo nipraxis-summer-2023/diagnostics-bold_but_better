@@ -1,4 +1,7 @@
 # Where the exercises etc go, given the solutions
 
+[solution.metrics]
+out_path = '{one_down}/findoutlie/metrics.py'
+
 [solution.validate_data]
 out_path = '{one_down}/scripts/validate_data.py'
