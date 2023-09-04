@@ -5,3 +5,6 @@ out_path = '{one_down}/findoutlie/metrics.py'
 
 [solution.validate_data]
 out_path = '{one_down}/scripts/validate_data.py'
+
+[solution.detectors]
+out_path = '{one_down}/findoutlie/detectors.py'
