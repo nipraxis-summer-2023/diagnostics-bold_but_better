@@ -1,77 +1,76 @@
-# Diagnostics project
-#
-Scripts go in the `scripts` directory.
+# Diagnostics Project by *Bold But Better Group*
 
-Library code (Python modules) goes in the `findoutlie` directory.
+## Overview
 
-You should put the code in this `findoutlie` directory on your Python PATH.
+Welcome to the Diagnostics project! This repository contains Python scripts and modules designed for data validation and outlier detection in 4D images. Scripts are found in the `scripts` directory, and library code (Python modules) reside in the `findoutlie` directory. Scroll down for instructions on how to get your hands on the data and make it dance to your tunes.
 
-This README file has instructions on how to get, validate and process the data.
+## Requirements
 
-It belongs to the *Bold* But Better group. 
+- Python 3.x
+- Internet access to download the data
 
-## Get the data
+## Get the Data
 
-```
+First, let's get the data like we get our morning newspaper, fresh and quick!
+
+Change to the `data` directory:
+
+```bash
 cd data
+```
+
+Download and extract the data using:
+
+```bash
 curl -L https://figshare.com/ndownloader/files/34951602 -o group_data.tar
 tar xvf group_data.tar
 ```
 
-Add the hash_list file to Git:
+And don't forget to navigate back to the root of the repository:
 
-```
-git add data/group-*/hash_list.txt
-git commit -m "Add hash list file"
-```
-
-Change directory back to root of repository
-
-```
+```bash
 cd ..
 ```
 
-Add the hash_list file to Git:
+## Check the Data
 
-```
-git add group-*/hash_list.txt
-git commit -m "Add hash list file"
-```
+Run this command like you're checking your tea for the right colour:
 
-Change directory back to root of repository
-
-```
-cd ..
+```bash
+python3 scripts/validate_data.py <path_to_data>
 ```
 
-## Check the data
+### Example
 
-```
+```bash
 python3 scripts/validate_data.py data
 ```
 
-## Find outliers
+## Find Outliers
 
+Let's catch those outliers, shall we? Like hunting for Waldo but in 4D.
+
+```bash
+python3 scripts/find_outliers.py <path_to_data>
 ```
+
+### Example
+
+```bash
 python3 scripts/find_outliers.py data
 ```
 
-This should print output to the terminal of form:
+You should see an output like this:
 
 ```
 <filename>, <outlier_index>, <outlier_index>, ...
-<filename>, <outlier_index>, <outlier_index>, ...
+...
 ```
 
-Where `<filename>` is the name of the image that has outlier scans, and
-`<outlier_index>` is an index to the volume in the 4D image that you have
-identified as an outlier.  0 refers to the first volume.  For example (these
-outlier IDs are completely random, for illustration):
+## Contributing
 
-```
-data/sub-01/func/sub-01_task-taskzero_run-01_bold.nii.gz, 3, 21, 22, 104
-data/sub-01/func/sub-01_task-taskzero_run-02_bold.nii.gz, 11, 33, 91
-data/sub-03/func/sub-03_task-taskzero_run-02_bold.nii.gz, 101, 102, 132
-data/sub-08/func/sub-08_task-taskzero_run-01_bold.nii.gz, 0, 1, 2, 166, 167
-data/sub-09/func/sub-08_task-taskzero_run-01_bold.nii.gz, 3
-```
+Contributions are like clotted cream on scones, always welcome!
+
+## License
+
+This project is as open as the British skies, but check with @matthew-brett first

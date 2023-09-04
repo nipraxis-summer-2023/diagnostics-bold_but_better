@@ -9,6 +9,11 @@ from pathlib import Path
 import sys
 import hashlib
 
+# add necessary directories to python's search path at runtime
+PACKAGE_DIR = Path(__file__).parent / '..'
+sys.path.append(str(PACKAGE_DIR))
+
+
 
 def file_hash(filename):
     """ Get byte contents of file `filename`, return SHA1 hash
@@ -24,10 +29,10 @@ def file_hash(filename):
         SHA1 hexadecimal hash string for contents of `filename`.
     """
     # Open the file, read contents as bytes.
+    file_contents = Path(filename).read_bytes()
     # Calculate, return SHA1 has on the bytes from the file.
-    # This is a placeholder, replace it to write your solution.
-    raise NotImplementedError(
-        'This is just a template -- you are expected to code this.')
+    
+    return hashlib.sha1(file_contents).hexdigest()
 
 
 def validate_data(data_directory):
@@ -49,12 +54,16 @@ def validate_data(data_directory):
         ``data_hashes.txt`` file.
     """
     # Read lines from ``data_hashes.txt`` file.
+    hashes_pth = Path(data_directory) / 'group-00' / 'hash_list.txt'
     # Split into SHA1 hash and filename
+    lines = hashes_pth.read_text().splitlines()
     # Calculate actual hash for given filename.
-    # If hash for filename is not the same as the one in the file, raise
-    # ValueError
-    # This is a placeholder, replace it to write your solution.
-    raise NotImplementedError('This is just a template -- you are expected to code this.')
+    for line in lines:
+        exp_hash, fname = line.split() # Split each line into expected_hash and filename
+        calc_hash = file_hash(Path(data_directory) / fname)
+        # If hash for filename is not the same as the one in the file, raise ValueError
+        if calc_hash != exp_hash:
+            raise ValueError(f'Hash for {fname} is {calc_hash}, which does not match {exp_hash}')
 
 
 def main():
