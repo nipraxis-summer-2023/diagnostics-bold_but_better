@@ -1,3 +1,14 @@
+# .toml stands for Tom's Obvious, Minimal Language but has nothing to do with Tom,
+# unless you are Tom! .toml file is usuallly a setup file and in this case 
+# it allows us to use:
+# python3 -m pip install --user --editable . 
+# ...that installs the module findoutlie (as described below).
+# ...the "--user" is to install only for current user
+# ...the "--editable" means that any code changes we make are immedately reflected
+# ...the "." at the end means the current directory (where pip will magically find the .toml)
+# after running the above command the 'findoutlie' module is now importable as module
+# can be tested like: python3 -c 'import findoutlie' (-c means run this command)
+
 [build-system]
 requires = ["flit_core >=2,<4"]
 build-backend = "flit_core.buildapi"

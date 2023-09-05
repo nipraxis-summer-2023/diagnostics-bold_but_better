@@ -11,7 +11,7 @@ import nibabel as nib
 
 import nipraxis as npx
 
-from findoutlie.metrics import dvars
+from findoutlie import dvars
 
 
 TEST_FNAME = npx.fetch_file('ds114_sub009_t2r1.nii')
