@@ -22,7 +22,8 @@ To make this possible, fill out the README.md text file in your repository to de
 </i>
 
 ## Project Analysis Plan
-1. decide on which outlier methods to use (apart from mean and DIVARs)
+1. complete initial research on which outlier methods are used in fmri data prep -> take notes in shared google doc
+2. decide on which outlier methods to use (apart from mean and DIVARs)
 2. implement outlier detection method/s, with docstrings
 3. write test scripts for method/s
 4. test method/s on another dataset
