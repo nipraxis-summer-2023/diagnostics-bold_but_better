@@ -1,3 +1,5 @@
 *.pyc
 __pycache__/
 outlier_detection_methods.md
+# Output from coverage command
+.coverage
