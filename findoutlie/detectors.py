@@ -47,15 +47,12 @@ def iqr_detector(measures, iqr_proportion=1.5):
         corresponding value in `measures` is an outlier.
     """
 
-    percentiles = [25, 50, 75]
+    percentiles = [25, 75]
     result = np.percentile(measures, q=percentiles)
-    Q1, Q2, Q3 = result
+    Q1, Q3 = result
     IQR = Q3 - Q1
     upper_bound = Q3 + IQR * iqr_proportion # upper outlier
     lower_bound = Q1 - IQR * iqr_proportion # lower outlier
 
-    return [
-        np.logical_or(x > upper_bound, x < lower_bound)
-        for x in measures
-    ]   
+    return np.logical_or(measures > upper_bound, measures < lower_bound)   
 
