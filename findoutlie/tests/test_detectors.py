@@ -31,7 +31,7 @@ import numpy as np
 
 # This import needs the directory containing the findoutlie directory
 # on the Python path.  See above.
-from findoutlie.detectors import iqr_detector
+from findoutlie.detectors import iqr_detector, z_score_detector
 
 
 def test_iqr_detector():
@@ -46,7 +46,12 @@ def test_iqr_detector():
     assert np.all(example_values[is_outlier] == [10.2, 14.1, 15.1, 15.9, 16.4])
 
 
+def test_z_score_detector():
+    
+    pass
+
 if __name__ == '__main__':
     # File being executed as a script
     test_iqr_detector()
+    test_z_score_detector()
     print('Tests passed')
