@@ -47,8 +47,27 @@ def test_iqr_detector():
 
 
 def test_z_score_detector():
-    
-    pass
+    # make random 4D vector with 64x64x30 shaped volumes and 10 time points, in range [0, 1]
+    data = np.random.rand(64, 64, 30, 10)
+    # make two outlier volumes, [2, 6] with significantly higher/lower means
+    data[...,2] += 5
+    data[...,6] -= 5
+    outliers = z_score_detector(data)
+    assert np.all(outliers == np.asarray([2, 6]))
+    # test for no outliers
+    # No outliers; std normal distribution
+    data = np.random.normal(0, 1, (64, 64, 30, 10))
+    outliers = z_score_detector(data)
+    assert np.all(outliers == np.asarray([]))
+    #test_empty_data
+    data = np.array([])
+    outliers = z_score_detector(data)
+    assert np.all(outliers == np.asarray([]))
+    # test identical volume (ones)
+    data = np.ones((64, 64, 30, 10))
+    outliers = z_score_detector(data)
+    assert np.all(outliers == np.asarray([]))
+
 
 if __name__ == '__main__':
     # File being executed as a script

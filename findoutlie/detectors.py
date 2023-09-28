@@ -71,22 +71,6 @@ def vol_mean(data):
     ]
 
 
-def vol_std(data):
-    """
-    Calculates the standard deviation of each volume in the 4D data
-
-    Parameters: nibable image
-    data: a nibable image (nibabel.nifti1.Nifti1Image), a 4D fMRI data with volumes over time
-    -------
-    Returns: list
-    A list of standard deviations, each itema being std per volume across time
-    """
-    return [
-        np.std(data[..., vol])
-        for vol in range(data.shape[-1])
-    ]
-
-
 def z_score_detector(data, n_std=2):
     """
     Detects outliers in the 4D data and returns a list of indices of outlier volumes
@@ -98,9 +82,14 @@ def z_score_detector(data, n_std=2):
     Returns: numpy array
     A list of indices of outlier volumes in the data (classifed as > n_std from the mean)
     """
+    if data.size == 0:
+        return np.array([])
+    
     means = vol_mean(data)
     mean_means = np.mean(means)
     std_means = np.std(means)
+    if std_means == 0: # avoid division by zero
+        return np.array([])
 
     # Calculate Z-scores
     z_scores = (means - mean_means) / std_means
