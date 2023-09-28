@@ -1,3 +1,4 @@
+import unittest
 """ Test script for detector functions
 
 Run these tests with::
@@ -31,7 +32,7 @@ import numpy as np
 
 # This import needs the directory containing the findoutlie directory
 # on the Python path.  See above.
-from findoutlie.detectors import iqr_detector, z_score_detector
+from findoutlie.detectors import iqr_detector, z_score_detector, dvars_detector
 
 
 def test_iqr_detector():
@@ -67,6 +68,31 @@ def test_z_score_detector():
     data = np.ones((64, 64, 30, 10))
     outliers = z_score_detector(data)
     assert np.all(outliers == np.asarray([]))
+
+def test_dvars_detector():
+    # test empty array
+    data = np.array([])
+    outliers = dvars_detector(data)
+    assert np.all(outliers == np.asarray([]))
+    # test_all_zeros
+    img_data = np.zeros((64, 64, 30, 10))
+    assert np.all(outliers == np.asarray([]))
+    #test_normal data without outliers
+    img_data = np.random.normal(0, 1, (64, 64, 30, 10))
+    assert np.all(outliers == np.asarray([]))
+    # test normal data with outliers
+    img_data = np.random.normal(0, 1, (64, 64, 30, 10))
+    img_data[:, :, :, 3:4] = 100  # Introduce outliers
+    assert len(dvars_detector(img_data, z_value=1)) > 0
+    # test threshold sensitivity
+    img_data = np.random.normal(0, 1, (64, 64, 30, 10))
+    img_data[:, :, :, 3:5] = 100  # Introduce outliers
+    assert len(dvars_detector(img_data, z_value=0.1)) > \
+        len(dvars_detector(img_data, z_value=3))
+
+
+if __name__ == '__main__':
+    unittest.main()
 
 
 if __name__ == '__main__':
