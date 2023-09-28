@@ -1,3 +1,5 @@
+import nipraxis as npx
+import nibabel as nib
 import unittest
 """ Test script for detector functions
 
@@ -32,7 +34,7 @@ import numpy as np
 
 # This import needs the directory containing the findoutlie directory
 # on the Python path.  See above.
-from findoutlie.detectors import iqr_detector, z_score_detector, dvars_detector
+from findoutlie.detectors import iqr_detector, z_score_detector, dvars, dvars_detector
 
 
 def test_iqr_detector():
@@ -68,6 +70,36 @@ def test_z_score_detector():
     data = np.ones((64, 64, 30, 10))
     outliers = z_score_detector(data)
     assert np.all(outliers == np.asarray([]))
+
+
+TEST_FNAME = npx.fetch_file('ds114_sub009_t2r1.nii')
+
+def test_dvars():
+    """
+    Test the function dvars for DVARS calculation.
+    
+    The test asserts that the length of calculated DVARS is one less than the number of time points (TRs) in the 4D image.
+    It also validates the dvars calculation against a manual calculation, element-wise.
+    """
+    img = nib.load(TEST_FNAME)
+    img_data = img.get_fdata()
+    n_trs = img.shape[-1]
+    n_voxels = np.prod(img.shape[:-1])
+
+    dvals = dvars(img_data)
+    assert len(dvals) == n_trs - 1
+
+    # Manual calculation
+    prev_vol = img_data[..., 0]
+    long_dvals = []
+    for i in range(1, n_trs):
+        this_vol = img_data[..., i]
+        diff_vol = this_vol - prev_vol
+        long_dvals.append(np.sqrt(np.sum(diff_vol ** 2) / n_voxels))
+        prev_vol = this_vol
+
+    assert np.allclose(dvals, long_dvals)
+
 
 def test_dvars_detector():
     # test empty array
