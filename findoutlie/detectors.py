@@ -13,8 +13,6 @@ requirements are met and raise an error otherwise.
 # Any imports you need
 import numpy as np
 
-
-
 def iqr_detector(measures, iqr_proportion=1.5):
     """ Detect outliers in `measures` using interquartile range.
 
@@ -56,3 +54,47 @@ def iqr_detector(measures, iqr_proportion=1.5):
 
     return np.logical_or(measures > upper_bound, measures < lower_bound)   
 
+
+def vol_mean(data):
+    """
+    Calculates the mean of each volume in the 4D data
+    
+    Parameters: a nibabel image
+    data: a nibable image (nibabel.nifti1.Nifti1Image), a 4D fMRI data with volumes over time
+    --------
+    Returns: list
+    a list of means, each item being mean per volume across time
+    """
+    return [
+        np.mean(data[..., vol])
+        for vol in range(data.shape[-1])
+    ]
+
+
+def z_score_detector(data, n_std=2):
+    """
+    Detects outliers in the 4D data and returns a list of indices of outlier volumes
+
+    Parameters: nibable image, int
+    data: a nibable image (nibabel.nifti1.Nifti1Image), a 4D fMRI data with volumes over time
+    n_std: number of standard deviations away from mean for a volue to be classified as an outlier; default 2
+    -------
+    Returns: numpy array
+    A list of indices of outlier volumes in the data (classifed as > n_std from the mean)
+    """
+    if data.size == 0:
+        return np.array([])
+    
+    means = vol_mean(data)
+    mean_means = np.mean(means)
+    std_means = np.std(means)
+    if std_means == 0: # avoid division by zero
+        return np.array([])
+
+    # Calculate Z-scores
+    z_scores = (means - mean_means) / std_means
+
+    # Find outliers using Z-scores
+    outliers = np.asarray(np.abs(z_scores) > n_std).nonzero()[0]
+
+    return outliers
