@@ -16,9 +16,37 @@ sys.path.append(str(PACKAGE_DIR))
 
 from findoutlie import find_outliers
 
+def outliers(data_directory):
+    """ Creates a dictionary with file name and incidies of outlier 
+     volumes per file (scan) in the data directory
 
-def print_outliers(data_directory):
+    Parameters:
+    -------
+    data_directory: string
+    path to data directory
+
+    Returns:
+    ------
+    outlier_dict: dict
+    dictionary with indicies of outliers per file
+    """
     outlier_dict = find_outliers(data_directory)
+    
+    return outlier_dict
+
+
+def print_outliers(outlier_dict):
+    """ Prints file name and incidies of outlier volumes per scan in data directory
+
+    Parameters:
+    -------
+    data_directory: string
+    path to data directory
+
+    Returns:
+    ------
+    nothing
+    """
     for fname, outliers in outlier_dict.items():
         if len(outliers) == 0:
             continue
