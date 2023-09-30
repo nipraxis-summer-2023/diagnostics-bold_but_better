@@ -16,7 +16,7 @@ sys.path.append(str(PACKAGE_DIR))
 
 from findoutlie import find_outliers
 
-def outliers(data_directory):
+def get_outliers(data_directory):
     """ Creates a dictionary with file name and incidies of outlier 
      volumes per file (scan) in the data directory
 
@@ -31,11 +31,11 @@ def outliers(data_directory):
     dictionary with indicies of outliers per file
     """
     outlier_dict = find_outliers(data_directory)
-    
+
     return outlier_dict
 
 
-def print_outliers(outlier_dict):
+def print_outliers(data_directory):
     """ Prints file name and incidies of outlier volumes per scan in data directory
 
     Parameters:
@@ -47,6 +47,7 @@ def print_outliers(outlier_dict):
     ------
     nothing
     """
+    outlier_dict = get_outliers(data_directory)
     for fname, outliers in outlier_dict.items():
         if len(outliers) == 0:
             continue
@@ -54,7 +55,7 @@ def print_outliers(outlier_dict):
         for out_ind in outliers:
             outlier_strs.append(str(out_ind))
         print(', '.join([str(fname)] + outlier_strs))
-
+        
 
 def get_parser():
     parser = ArgumentParser(description=__doc__,  # Usage from docstring
