@@ -1,4 +1,6 @@
-from scipy.stats import f
+from statsmodels.stats.multitest import multipletests
+from scipy import stats
+import scipy.stats as stats
 from statsmodels.api import OLS, add_constant
 from sklearn.metrics import mean_squared_error
 from sklearn.covariance import EllipticEnvelope
@@ -9,6 +11,7 @@ import numpy as np
 from scipy.stats import gamma
 import matplotlib.pyplot as plt
 from skimage.filters import threshold_otsu
+
 
 """ Module with routines for finding outliers
 """
@@ -222,25 +225,95 @@ def remove_outliers(data, method):
 
     return filtered_data, outliers # return data without outliers and outlier indices
 
-def glm(data, factors, c):
-    N = data.shape[-1]
-    X = np.ones((N, len(factors) + 1))
-    X[:, 1:] = np.column_stack(factors) # add each factor as a column in design matrix
-    Y = np.reshape(data, (-1, N))  # reshape data to time by voxels
-    Y = Y.T  # transpose
-    B = npl.pinv(X) @ Y  # y_hat = X@B_hat + error
 
-    # t test
+def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh'):
+
+    N = data.shape[-1]
+    if otsu_mask:
+        mean = np.mean(data, axis=-1)
+        thresh = threshold_otsu(mean)
+        mask = mean > thresh
+        plt.imshow(mask[:, :, 15], cmap='gray')
+        plt.title("Otsu's mask")
+        plt.show()
+    else:
+        mask = None  # no mask
+
+    if mask is not None:
+        Y = np.reshape(data[mask], (-1, N))
+    else:
+        Y = np.reshape(data, (-1, N))
+
+    Y = Y.T
+    X = np.ones((N, len(factors) + 1))
+    X[:, 1:] = np.column_stack(factors)
+    B = npl.pinv(X) @ Y
+
     top_of_t = c @ B
-    np.all(top_of_t == B[1, :])
     df_error = N - npl.matrix_rank(X)
     fitted = X @ B
     E = Y - fitted
     sigma_2 = np.sum(E ** 2, axis=0) / df_error
     c_b_cov = c.T @ npl.pinv(X.T @ X) @ c
-    t = top_of_t / np.sqrt(sigma_2 * c_b_cov)
 
-    return X, Y, E, t
+    # catch division by zero
+    with np.errstate(divide='ignore', invalid='ignore'): # catch division by zero
+        t = np.true_divide(top_of_t, np.sqrt(sigma_2 * c_b_cov))
+        t[~np.isfinite(t)] = np.nan  # -inf, inf, NaN
+
+    t_3d = np.zeros(data.shape[:3])
+    p_3d = np.zeros(data.shape[:3])
+    t_dist = stats.t(df_error)
+    p = 1 - t_dist.cdf(t)
+
+    if mask is not None:
+        t_3d[mask] = t
+        p_3d[mask] = p
+    else:
+        t_3d = np.reshape(t, data.shape[:3])
+        p_3d = np.reshape(p, data.shape[:3])
+
+    # show t scores per voxel
+    plt.imshow(t_3d[:, :, 15], cmap='gray')
+    plt.title(f't.shape {t.shape}')
+    plt.show()
+
+    # show p-values per voxel
+    plt.imshow(p_3d[:, :, 15], cmap='gray')
+    plt.title(f'p.shape {p.shape}')
+    plt.show()
+
+
+    # multiple comparison correction:
+    #   Bonferroni ('bonferroni')
+    #   Benjamini-Hochberg's FDR ('fdr_bh')
+    #   Holm: 'holm'
+    #   Sidak: 'sidak'
+    if mult_comp == 'bonferroni':
+        N = p.shape[0]
+        bonferroni_thresh = 0.05 / N
+        p_adj = p_3d < bonferroni_thresh
+        print(f'p_adj shape: {p_adj.shape}')
+        plt.imshow(p_3d[:, :, 15] < bonferroni_thresh, cmap='gray')
+        plt.title('Bonferroni corrected p values')
+        plt.show()
+    else:
+       # Flatten p-values
+        p_flat = p.ravel()
+        reject, pvals_corrected, _, _ = multipletests(
+            p_flat, alpha=0.05, method=mult_comp.lower())
+        p_adj = np.zeros(p_3d.shape)
+        if mask is not None:
+            p_adj[mask] = pvals_corrected
+        else:
+            p_adj = np.reshape(pvals_corrected, p_3d.shape)
+        print(f'p_adj shape: {p_adj.shape}')
+        plt.imshow(p_adj[:, :, 15], cmap='gray')
+        plt.title(f'{mult_comp} corrected p-values')
+        plt.show()
+
+    return X, Y, E, t, p_adj
+
 
 def evaluate_outlier_methods(data, convolved):
     data = data[...,1:] # knock of first scan
@@ -249,48 +322,7 @@ def evaluate_outlier_methods(data, convolved):
     # glm stuff
     # contrast matrix: Contrast the difference of the slope from 0
     c = np.array([0, 1])
-    X, Y, E, t = glm(data, [convolved], c)
-
-    # mask of the voxels within the brain using Otsu’s method
-    mean = np.mean(data, axis=-1)
-    thresh = threshold_otsu(mean)
-    mask = mean > thresh
-    # plt.imshow(mask[:, :, 15], cmap='gray')
-    # plt.show()
-
-    N = data.shape[-1]
-    Y = data[mask].T
-    B = npl.pinv(X) @ Y
-    fitted = X @ B
-    E = Y - fitted
-    df_error = N - npl.matrix_rank(X)
-    sigma_2 = np.sum(E ** 2, axis=0) / df_error
-    # c and c_b_cov are the same as before, but recalculate anyway
-    c = np.array([0, 1])
-    c_b_cov = c @ npl.pinv(X.T @ X) @ c
-    t = c.T @ B / np.sqrt(sigma_2 * c_b_cov)
-    # print(f't.shape {t.shape}')
-    # t_3d = np.zeros(data.shape[:3])
-    # t_3d[mask] = t
-    # plt.imshow(t_3d[:, :, 15], cmap='gray')
-    # plt.show()
-
-    import scipy.stats as stats
-    # calc p value for each t statistic
-    t_dist = stats.t(df_error)
-    p = 1 - t_dist.cdf(t)
-    # print(p.shape)
-    # p_3d = np.zeros(data.shape[:3])
-    # p_3d[mask] = p
-    # plt.imshow(p_3d[:, :, 15], cmap='gray')
-    # plt.show()
-
-    # multiple comparision correction, bonferroni
-    N = p.shape[0]
-    bonferroni_thresh = 0.05 / N
-    # print(f'bonferroni_thresh: {bonferroni_thresh}')
-    # plt.imshow(p_3d[:, :, 15] < bonferroni_thresh, cmap='gray')
-    # plt.show()
+    X, Y, E, t, p_adj = glm(data, [convolved], c, otsu_mask=True)
 
     
     methods = ['z_score_detector', 'iqr_detector', 'DIVAR']
@@ -299,7 +331,8 @@ def evaluate_outlier_methods(data, convolved):
         # Remove outliers
         data_filtered, outliers = remove_outliers(data, method)
         convolved_filtered = np.delete(convolved, outliers)
-        X_filtered, y_filtered, E, t = glm(data_filtered, [convolved_filtered], c)
+        X_filtered, y_filtered, E, t, p_adj = glm(
+            data_filtered, [convolved_filtered], c, otsu_mask=False)
 
         # Fit GLM on original data
         model_orig = OLS(Y, add_constant(X)).fit()
@@ -309,9 +342,11 @@ def evaluate_outlier_methods(data, convolved):
         model_filtered = OLS(y_filtered, add_constant(X_filtered)).fit()
         rms_filtered = np.sqrt(mean_squared_error(
             y_filtered, model_filtered.fittedvalues))
+        
+        return [1, 2] # DEBUG, REMOVE LATER, IMPLMENT F TEST BELOW
 
         # Perform F-test between original and filtered models
-        f_stat, p_value = f(model_orig.df_resid, model_filtered.df_resid,
+        f_stat, p_value = stats.f(model_orig.df_resid, model_filtered.df_resid,
                             model_orig.ssr, model_filtered.ssr)
 
         # Report metrics
