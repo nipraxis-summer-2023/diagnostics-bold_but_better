@@ -71,21 +71,21 @@ def vol_mean(data):
     ]
 
 
-def z_score_detector(data, n_std=2):
+def z_score_detector(img_data, n_std=2):
     """
     Detects outliers in the 4D data and returns a list of indices of outlier volumes
 
-    Parameters: nibable image, int
-    data: a nibable image (nibabel.nifti1.Nifti1Image), a 4D fMRI data with volumes over time
+    Parameters: nibable image data
+    img_data: a nibable image data (nibabel.nifti1.Nifti1Image), a 4D fMRI data with volumes over time
     n_std: number of standard deviations away from mean for a volue to be classified as an outlier; default 2
     -------
     Returns: numpy array
     A list of indices of outlier volumes in the data (classifed as > n_std from the mean)
     """
-    if data.size == 0:
+    if img_data.size == 0:
         return np.array([])
     
-    means = vol_mean(data)
+    means = vol_mean(img_data)
     mean_means = np.mean(means)
     std_means = np.std(means)
     if std_means == 0: # avoid division by zero
@@ -98,3 +98,75 @@ def z_score_detector(data, n_std=2):
     outliers = np.asarray(np.abs(z_scores) > n_std).nonzero()[0]
 
     return outliers
+
+def dvars(img_data, z_value=2):
+    """ Calculate dvars metric on Nibabel image `img`
+
+    The dvars calculation between two volumes is defined as the square root of
+    (the mean of the (voxel differences squared)).
+    DVARS is essentially like a "spatial RMS", not to be confused with RMS Titanic,
+    which also had an impact but not the one we are looking for here. RMS
+    is useful mathematically in getting one number for comparison.
+
+    Parameters
+    ----------
+    img_data : nibabel image data, 4D vector
+    z_value: z value threshold for outlier, default 2
+
+    Returns
+    -------
+    dvars : 1D array of dvars in `img_data`.
+    """
+
+    if img_data.size == 0:
+        return np.array([])
+    # element wise difference along tha last axis, i.e. volume differences
+    vol_diff = np.diff(img_data, axis=-1)
+    # spatial RMS list. Note that the mean is for first three axis (volume)
+    dvars = np.sqrt(np.mean(vol_diff ** 2, axis=(0, 1, 2)))
+    
+    # Diagnostic Plot
+    # import matplotlib.pyplot as plt
+    # plt.plot(dvars)
+    # plt.axhline(y=dynamic_threshold, color='r', linestyle='--')
+    # plt.xlabel('Volume Transition')
+    # plt.ylabel('DVARS Value')
+    # plt.title(f'DVARS Plot with Dynamic Threshold = {dynamic_threshold}')
+    # plt.show()
+    return dvars
+    
+
+def dvars_detector(img_data, z_value=2):
+    """ Get outliers in Nibabel image `img` based on DVARs calcuation
+    
+    Parameters
+    ----------
+    img_data : nibabel image data, 4D vector
+    z_value: z value threshold for outlier, default 2
+
+    Returns
+    -------
+    outlier_volumes : 1D array
+        indices of dvars outliers in `img_data`.
+    """
+
+    if img_data.size == 0:
+        return np.array([])
+    # element wise difference along tha last axis, i.e. volume differences
+    vol_diff = np.diff(img_data, axis=-1)
+    # spatial RMS list. Note that the mean is for first three axis (volume)
+    dvals = dvars(img_data, z_value=z_value)
+
+    # Calculate dynamic threshold based on DVARS
+    mean = np.mean(dvals)
+    std = np.std(dvals)
+    dynamic_threshold = mean + z_value * std
+
+    dvars_outliers = np.where(dvals > dynamic_threshold)[0]
+
+    # Include both endpoints of the flagged transitions as both i and i+1 (increase in BOLD) could be outliers
+    # Note: Using np.unique to remove duplicates
+    outlier_volumes = np.unique(np.concatenate(
+        [dvars_outliers, dvars_outliers + 1]))
+
+    return outlier_volumes

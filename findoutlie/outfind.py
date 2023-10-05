@@ -10,7 +10,7 @@ import numpy as np
 # PACKAGE_DIR = Path(__file__).parent
 # sys.path.append(str(PACKAGE_DIR))
 
-from .detectors import z_score_detector
+from .detectors import z_score_detector, dvars_detector
 
 
 def load_fmri_data(fname, dim='4D'):
@@ -56,6 +56,7 @@ def find_outliers(data_directory):
     for fname in image_fnames:
         data = load_fmri_data(fname)  # Gets the 4D data from the file
         
-        outliers = z_score_detector(data)
+        # outliers = z_score_detector(data)
+        outliers = dvars_detector(data)
         outlier_dict[fname] = outliers
     return outlier_dict
