@@ -103,7 +103,7 @@ def z_score_detector(img_data, n_std=2):
 
     return outliers
 
-def dvars(img_data, z_value=2):
+def dvars(img_data):
     """ Calculate dvars metric on Nibabel image `img`
 
     The dvars calculation between two volumes is defined as the square root of
@@ -114,33 +114,23 @@ def dvars(img_data, z_value=2):
 
     Parameters
     ----------
-    img_data : nibabel image data, 4D vector
-    z_value: z value threshold for outlier, default 2
+    img_data : numpy 4D array
+        nibabel image data, 4D vector
 
     Returns
     -------
-    dvars : 1D array of dvars in `img_data`.
+    dvars : numpy array
+        1D array of dvars in `img_data`.
     """
 
     if img_data.size == 0:
         return np.array([])
-    # element wise difference along tha last axis, i.e. volume differences
+
     vol_diff = np.diff(img_data, axis=-1)
-    # spatial RMS list. Note that the mean is for first three axis (volume)
-    dvars = np.sqrt(np.mean(vol_diff ** 2, axis=(0, 1, 2)))
-    
-    # Diagnostic Plot
-    # import matplotlib.pyplot as plt
-    # plt.plot(dvars)
-    # plt.axhline(y=dynamic_threshold, color='r', linestyle='--')
-    # plt.xlabel('Volume Transition')
-    # plt.ylabel('DVARS Value')
-    # plt.title(f'DVARS Plot with Dynamic Threshold = {dynamic_threshold}')
-    # plt.show()
-    return dvars
+    return np.sqrt(np.mean(vol_diff ** 2, axis=(0, 1, 2)))
     
 
-def dvars_detector(img_data, z_value=2):
+def dvars_detector(img_data, z_value=1.96):
     """ Get outliers in Nibabel image `img` based on DVARs calcuation
     
     Parameters
@@ -156,21 +146,16 @@ def dvars_detector(img_data, z_value=2):
 
     if img_data.size == 0:
         return np.array([])
-    # element wise difference along tha last axis, i.e. volume differences
-    vol_diff = np.diff(img_data, axis=-1)
-    # spatial RMS list. Note that the mean is for first three axis (volume)
-    dvals = dvars(img_data, z_value=z_value)
 
-    # Calculate dynamic threshold based on DVARS
-    mean = np.mean(dvals)
-    std = np.std(dvals)
+    dvals = dvars(img_data)
+    mean, std = np.mean(dvals), np.std(dvals)
     dynamic_threshold = mean + z_value * std
 
     dvars_outliers = np.where(dvals > dynamic_threshold)[0]
+    outlier_volumes = np.unique(
+        np.concatenate([dvars_outliers, dvars_outliers + 1]))
 
-    # Include both endpoints of the flagged transitions as both i and i+1 (increase in BOLD) could be outliers
-    # Note: Using np.unique to remove duplicates
-    outlier_volumes = np.unique(np.concatenate(
-        [dvars_outliers, dvars_outliers + 1]))
-
+    print(f"Dynamic Threshold: {dynamic_threshold}")
+    print(outlier_volumes)
     return outlier_volumes
+

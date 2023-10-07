@@ -17,7 +17,7 @@ from skimage.filters import threshold_otsu
 # PACKAGE_DIR = Path(__file__).parent
 # sys.path.append(str(PACKAGE_DIR))
 
-from .detectors import z_score_detector, iqr_detector
+from .detectors import z_score_detector, iqr_detector, dvars_detector
 
 def load_fmri_data(fname, dim='4D'):
     """ Loads 4D data from file.
@@ -231,9 +231,9 @@ def remove_outliers(data, method):
         # print(f'outliers z: {outliers}')
     elif method == 'iqr_detector':
         outliers = iqr_detector(data)
-        # print(f'outliers iqrdddd: {outliers}')
-    elif method == 'DIVAR':
-        NotImplemented
+        # print(f'outliers iqr: {outliers}')
+    elif method == 'dvars':
+        outliers = dvars_detector(data, z_value=1.645) # setting z value at 90% CI
     else:
         return NotImplemented
     
@@ -379,7 +379,7 @@ def evaluate_outlier_methods(data, convolved, verbose=False):
     outliers_best_method: numpy array
         indices of outliers from the best outlier detection method
     """
-    methods = ['z_score_detector', 'iqr_detector'] #, 'DIVAR']
+    methods = ['z_score_detector', 'iqr_detector', 'dvars']
     outlier_perf = {}
     for method in methods:
         # Create a 2x3 subplot grid, if show=True
