@@ -1,6 +1,6 @@
 from statsmodels.stats.multitest import multipletests
 from scipy import stats
-import scipy.stats as stats
+import scipy.stats as statsdd
 import numpy.linalg as npl
 from pathlib import Path
 import nibabel as nib
