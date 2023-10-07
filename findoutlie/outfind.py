@@ -239,7 +239,7 @@ def remove_outliers(data, method):
     return filtered_data, outliers # return data without outliers and outlier indices
 
 
-def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh', show=False, title=''):
+def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh', axes=None, title='', slice=15):
     """General linear model
     
     Parametes:
@@ -258,6 +258,8 @@ def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh', show=False, title=
     wheter to display plots or notd
     title: str
     supplment title for plots
+    slice: int
+    nr of slice in volume to plot
 
     Returns:
     --------
@@ -337,26 +339,26 @@ def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh', show=False, title=
         p_adj = np.reshape(pvals_corrected, p_3d.shape)  # reshape p-values into 3D
     # print(f'p_adj shape: {p_adj.shape}')
 
-    if show:# show t scores per voxel
-        plt.imshow(t_3d[:, :, 15], cmap='gray')
-        plt.title(f'slice of t scores per voxel: {title}')
-        plt.show()
+    # show t scores per voxel
+    if axes is not None:
+        axes[0].imshow(t_3d[:, :, slice], cmap='gray')
+        axes[0].set_title(f'slice of t scores per voxel: {title}')
 
         # show p-values per voxel
-        plt.imshow(p_3d[:, :, 15], cmap='gray')
-        plt.title(f'slice of p scores per voxel: {title}')
-        plt.show()
+        axes[1].imshow(p_3d[:, :, slice], cmap='gray')
+        axes[1].set_title(f'slice of p scores per voxel: {title}')
 
         # show p-adjusted values per voxel
-        plt.imshow(p_adj[:, :, 15], cmap='gray')
-        plt.title(
+        axes[2].imshow(p_adj[:, :, slice], cmap='gray')
+        axes[2].set_title(
             f'slice of corrected p-values, {mult_comp} : {title}')
-        plt.show()
 
+        for ax in axes:
+            ax.axis('off')
     return X, Y, E, t, p, p_adj
 
 
-def evaluate_outlier_methods(data, convolved):
+def evaluate_outlier_methods(data, convolved, show=True):
     """Run different outlier detction methods and select the best one
     
     Parameters:
@@ -365,30 +367,35 @@ def evaluate_outlier_methods(data, convolved):
     The 4D nibable image data
     convolved: 1D numpy array
     The hemodynamic response model
+    show: Bool
+    sets whether to display plots
 
     Returns:
     -------
     outliers_best_method: numpy array
     indices of outliers from the best outlier detection method
     """
-    data = data[...,1:] # knock of first scan
-    convolved = convolved[1:]  # knock of first item for consistency
-
-    # glm stuff
-    # contrast matrix: Contrast the difference of the slope from 0
-    c = np.array([0, 1])
-    X, Y, E, t, p, p_adj = glm(
-        data, [convolved], c, otsu_mask=True, mult_comp='fdr_bh', show=False)
-    # print(f'X {X.shape}, Y {Y.shape}, E {E.shape}, t {t.shape}, p {p.shape}, p_adj {p_adj.shape}')
-
     methods = ['z_score_detector', 'iqr_detector'] #, 'DIVAR']
     outlier_perf = {}
     for method in methods:
+        # Create a 2x3 subplot grid, if show=True
+        # Create a new figure for each method
+        fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+        slice = 15 # set which slice to display
+
+        data = data[..., 1:]  # knock of first scan
+        convolved = convolved[1:]  # knock of first item for consistency
+        # contrast matrix: Contrast the difference of the slope from 0
+        c = np.array([0, 1])
+        X, Y, E, t, p, p_adj = glm(
+            data, [convolved], c, otsu_mask=True, mult_comp='fdr_bh', axes=axes[0, :], slice=slice)
+        # print(f'X {X.shape}, Y {Y.shape}, E {E.shape}, t {t.shape}, p {p.shape}, p_adj {p_adj.shape}')
+
         # Remove outliers
         data_filtered, outliers = remove_outliers(data, method)
         convolved_filtered = np.delete(convolved, outliers)
         X_filtered, y_filtered, E_filt, t_filt, p_filt, p_adj_filt = glm(
-            data_filtered, [convolved_filtered], c, otsu_mask=True, mult_comp='fdr_bh', show=False, title='Filtered data')
+            data_filtered, [convolved_filtered], c, otsu_mask=True, mult_comp='fdr_bh', axes=axes[1, :], title='Filtered data', slice=slice)
 
         # compare MRSS between volumes, original and filtered
         MRSS = []
@@ -403,6 +410,12 @@ def evaluate_outlier_methods(data, convolved):
         # print(f'Drop in MRSS: {(1 - MRSS[1]/MRSS[0]) * 100:.2f}%')
         outlier_perf[method] = {'MRSS before': {
             MRSS[0]}, 'MRSS after': MRSS[1], 'drop (%)': drop, 'outliers': outliers}
+
+        if show:
+            fig.suptitle(f't, p and p_adj values: {method} method gives a {drop}% drop in MRSS.\n\
+            Original on top and filtered below for slice nr: {slice}')
+            plt.show()
+            plt.close(fig)
 
     # print(outlier_perf)
     best_method = max(outlier_perf.keys(),
