@@ -201,41 +201,57 @@ def find_outliers(data_directory):
         convolved = convolved_time_course(event_file, num_vols)
         
         outliers = evaluate_outlier_methods(data, convolved)
-        # outliers = z_score_detector(data) # 2DO SETTING THIS TEMPORARY TO RUN CODE
         outlier_dict[fname] = outliers
         
         return outlier_dict  # TEMP adding a BREAK for debugging, ONLY RUN first IMG file. REMOVE
 
     return outlier_dict
 
-
-from sklearn.datasets import make_regression
-
 def remove_outliers(data, method):
+    """remove outliers based on method and return data without outliers
+    
+    Parameters:
+    ------
+    data: numpy 4D array
+    a 4D fMRI image data
+    metohd: string
+    name of availabe outlier detection methods: 'z_score_detector', 'iqr_detector', 'DIVAR'
+
+    Returns:
+    ------
+    filtered_data: numpy 4D array
+    a 4D fMRI image data without outliers
+    outliers: numpy array
+    indicies of outliers in unfiltered data
+    """
     if method == 'z_score_detector':
         outliers = z_score_detector(data)
+        # print(f'outliers z: {outliers}')
     elif method == 'iqr_detector':
         outliers = iqr_detector(data)
+        # print(f'outliers iqrdddd: {outliers}')
     elif method == 'DIVAR':
         NotImplemented
     else:
         return NotImplemented
     
     filtered_data = np.delete(data, outliers, axis=3)
+    # print(f'data shape {data.shape}, filtered shape {filtered_data.shape}')
 
     return filtered_data, outliers # return data without outliers and outlier indices
 
 
-def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh'):
+def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh', show=False, title=''):
+    """General linear model"""
 
     N = data.shape[-1]
     if otsu_mask:
         mean = np.mean(data, axis=-1)
         thresh = threshold_otsu(mean)
         mask = mean > thresh
-        plt.imshow(mask[:, :, 15], cmap='gray')
-        plt.title("Otsu's mask")
-        plt.show()
+        # plt.imshow(mask[:, :, 15], cmap='gray')
+        # plt.title("Otsu's mask applied")
+        # plt.show()
     else:
         mask = None  # no mask
 
@@ -260,11 +276,13 @@ def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh'):
     with np.errstate(divide='ignore', invalid='ignore'): # catch division by zero
         t = np.true_divide(top_of_t, np.sqrt(sigma_2 * c_b_cov))
         t[~np.isfinite(t)] = np.nan  # -inf, inf, NaN
+    # print(f't shape: {t.shape}')
 
     t_3d = np.zeros(data.shape[:3])
     p_3d = np.zeros(data.shape[:3])
     t_dist = stats.t(df_error)
     p = 1 - t_dist.cdf(t)
+    # print(f'p shape: {p.shape}')
 
     if mask is not None:
         t_3d[mask] = t
@@ -272,47 +290,40 @@ def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh'):
     else:
         t_3d = np.reshape(t, data.shape[:3])
         p_3d = np.reshape(p, data.shape[:3])
-
-    # show t scores per voxel
-    plt.imshow(t_3d[:, :, 15], cmap='gray')
-    plt.title(f't.shape {t.shape}')
-    plt.show()
-
-    # show p-values per voxel
-    plt.imshow(p_3d[:, :, 15], cmap='gray')
-    plt.title(f'p.shape {p.shape}')
-    plt.show()
-
-
-    # multiple comparison correction:
+    # print(f't_3d / p_3d shapes: {t_3d.shape} / {p_3d.shape}')
+    
+    ## multiple comparison correction:
     #   Bonferroni ('bonferroni')
     #   Benjamini-Hochberg's FDR ('fdr_bh')
     #   Holm: 'holm'
     #   Sidak: 'sidak'
-    if mult_comp == 'bonferroni':
-        N = p.shape[0]
-        bonferroni_thresh = 0.05 / N
-        p_adj = p_3d < bonferroni_thresh
-        print(f'p_adj shape: {p_adj.shape}')
-        plt.imshow(p_3d[:, :, 15] < bonferroni_thresh, cmap='gray')
-        plt.title('Bonferroni corrected p values')
-        plt.show()
+    p_flat = p.ravel()
+    reject, pvals_corrected, _, _ = multipletests(
+        p_flat, alpha=0.05, method=mult_comp.lower())
+    p_adj = np.zeros(p_3d.shape)
+    if mask is not None:
+        p_adj[mask] = pvals_corrected
     else:
-       # Flatten p-values
-        p_flat = p.ravel()
-        reject, pvals_corrected, _, _ = multipletests(
-            p_flat, alpha=0.05, method=mult_comp.lower())
-        p_adj = np.zeros(p_3d.shape)
-        if mask is not None:
-            p_adj[mask] = pvals_corrected
-        else:
-            p_adj = np.reshape(pvals_corrected, p_3d.shape)
-        print(f'p_adj shape: {p_adj.shape}')
-        plt.imshow(p_adj[:, :, 15], cmap='gray')
-        plt.title(f'{mult_comp} corrected p-values')
+        p_adj = np.reshape(pvals_corrected, p_3d.shape)  # reshape p-values into 3D
+    # print(f'p_adj shape: {p_adj.shape}')
+
+    if show:# show t scores per voxel
+        plt.imshow(t_3d[:, :, 15], cmap='gray')
+        plt.title(f'slice of t scores per voxel: {title}')
         plt.show()
 
-    return X, Y, E, t, p_adj
+        # show p-values per voxel
+        plt.imshow(p_3d[:, :, 15], cmap='gray')
+        plt.title(f'slice of p scores per voxel: {title}')
+        plt.show()
+
+        # show p-adjusted values per voxel
+        plt.imshow(p_adj[:, :, 15], cmap='gray')
+        plt.title(
+            f'slice of corrected p-values, {mult_comp} : {title}')
+        plt.show()
+
+    return X, Y, E, t, p, p_adj
 
 
 def evaluate_outlier_methods(data, convolved):
@@ -322,51 +333,36 @@ def evaluate_outlier_methods(data, convolved):
     # glm stuff
     # contrast matrix: Contrast the difference of the slope from 0
     c = np.array([0, 1])
-    X, Y, E, t, p_adj = glm(data, [convolved], c, otsu_mask=True)
+    X, Y, E, t, p, p_adj = glm(
+        data, [convolved], c, otsu_mask=True, mult_comp='fdr_bh', show=False)
+    # print(f'X {X.shape}, Y {Y.shape}, E {E.shape}, t {t.shape}, p {p.shape}, p_adj {p_adj.shape}')
 
-    
-    methods = ['z_score_detector', 'iqr_detector', 'DIVAR']
+    methods = ['z_score_detector', 'iqr_detector'] #, 'DIVAR']
     outlier_perf = {}
     for method in methods:
         # Remove outliers
         data_filtered, outliers = remove_outliers(data, method)
         convolved_filtered = np.delete(convolved, outliers)
-        X_filtered, y_filtered, E, t, p_adj = glm(
-            data_filtered, [convolved_filtered], c, otsu_mask=False)
+        X_filtered, y_filtered, E_filt, t_filt, p_filt, p_adj_filt = glm(
+            data_filtered, [convolved_filtered], c, otsu_mask=True, mult_comp='fdr_bh', show=False, title='Filtered data')
 
-        # Fit GLM on original data
-        model_orig = OLS(Y, add_constant(X)).fit()
-        rms_orig = np.sqrt(mean_squared_error(Y, model_orig.fittedvalues))
+        # compare MRSS between volumes, original and filtered
+        MRSS = []
+        for vol, resid in [(X, E), (X_filtered, E_filt)]:
+        # Residual sum of squares
+            RSS = np.sum(resid ** 2)
+            # Degrees of freedom: n - no independent columns in X
+            df = vol.shape[0] - npl.matrix_rank(vol)
+            # Mean residual sum of squares
+            MRSS.append(RSS / df)
+        drop = np.around(1 - MRSS[1]/MRSS[0], 4) * 100
+        # print(f'Drop in MRSS: {(1 - MRSS[1]/MRSS[0]) * 100:.2f}%')
+        outlier_perf[method] = {'MRSS before': {
+            MRSS[0]}, 'MRSS after': MRSS[1], 'drop (%)': drop, 'outliers': outliers}
 
-        # Fit GLM on filtered data
-        model_filtered = OLS(y_filtered, add_constant(X_filtered)).fit()
-        rms_filtered = np.sqrt(mean_squared_error(
-            y_filtered, model_filtered.fittedvalues))
-        
-        return [1, 2] # DEBUG, REMOVE LATER, IMPLMENT F TEST BELOW
+    # print(outlier_perf)
+    best_method = max(outlier_perf.keys(),
+                      key=lambda x: outlier_perf[x]['drop (%)'])
 
-        # Perform F-test between original and filtered models
-        f_stat, p_value = stats.f(model_orig.df_resid, model_filtered.df_resid,
-                            model_orig.ssr, model_filtered.ssr)
+    return outlier_perf[best_method]['outliers']
 
-        # Report metrics
-        print(f"Method: {method}")
-        print(f"RMS before: {rms_orig}")
-        print(f"RMS after: {rms_filtered}")
-        print(f"F-test statistic: {f_stat}")
-        print(f"P-value: {p_value}")
-        outlier_perf[method] = {"RMS before": rms_orig, "RMS after": rms_filtered,
-                                "F-test statistic": f_stat, "P-value": p_value, "outliers": outliers}
-
-
-    best_method = min(outlier_perf.keys(),
-                  key=lambda x: outlier_perf[x]['RMS after'])
-    
-    return outlier_perf[best_method][outliers]
-
-    # for method in outlier_methods:  # loop through outlier methods, per fname/event
-
-        # run GLM and get errors and F-score before removing outliers
-        # remove outliers
-        # run GLM and get errors and F-score after removing outliers
-    # print out results in a text file (our arguments for selecting best outlier)
