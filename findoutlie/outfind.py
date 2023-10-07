@@ -1,9 +1,6 @@
 from statsmodels.stats.multitest import multipletests
 from scipy import stats
 import scipy.stats as stats
-from statsmodels.api import OLS, add_constant
-from sklearn.metrics import mean_squared_error
-from sklearn.covariance import EllipticEnvelope
 import numpy.linalg as npl
 from pathlib import Path
 import nibabel as nib
