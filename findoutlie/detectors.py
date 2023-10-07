@@ -155,7 +155,5 @@ def dvars_detector(img_data, z_value=1.96):
     outlier_volumes = np.unique(
         np.concatenate([dvars_outliers, dvars_outliers + 1]))
 
-    print(f"Dynamic Threshold: {dynamic_threshold}")
-    print(outlier_volumes)
     return outlier_volumes
 

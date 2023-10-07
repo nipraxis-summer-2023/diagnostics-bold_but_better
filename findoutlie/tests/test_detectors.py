@@ -28,7 +28,7 @@ import sys
 # ``findoutlie`` directory.
 ROOT_DIR = Path(__file__).parent.parent.parent.absolute()
 sys.path.append(str(ROOT_DIR))
-print(sys.path)
+# print(sys.path)
 
 import numpy as np
 
@@ -131,4 +131,5 @@ if __name__ == '__main__':
     # File being executed as a script
     test_iqr_detector()
     test_z_score_detector()
+    test_dvars_detector()
     print('Tests passed')
