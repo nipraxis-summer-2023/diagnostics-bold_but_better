@@ -16,38 +16,42 @@ sys.path.append(str(PACKAGE_DIR))
 
 from findoutlie import find_outliers
 
-def get_outliers(data_directory):
+def get_outliers(data_directory, verbose):
     """ Creates a dictionary with file name and incidies of outlier 
      volumes per file (scan) in the data directory
 
     Parameters:
     -------
     data_directory: string
-    path to data directory
+        path to data directory
+    verbose: bool
+        display images and print logs
 
     Returns:
     ------
     outlier_dict: dict
     dictionary with indicies of outliers per file
     """
-    outlier_dict = find_outliers(data_directory)
+    outlier_dict = find_outliers(data_directory, verbose)
 
     return outlier_dict
 
 
-def print_outliers(data_directory):
+def print_outliers(data_directory, verbose):
     """ Prints file name and incidies of outlier volumes per scan in data directory
 
     Parameters:
     -------
     data_directory: string
-    path to data directory
+        path to data directory
+    verbose: bool
+        display images and print logs
 
     Returns:
     ------
     nothing
     """
-    outlier_dict = get_outliers(data_directory)
+    outlier_dict = get_outliers(data_directory, verbose)
     for fname, outliers in outlier_dict.items():
         if len(outliers) == 0:
             continue
@@ -62,6 +66,9 @@ def get_parser():
                             formatter_class=RawDescriptionHelpFormatter)
     parser.add_argument('data_directory',
                         help='Directory containing data')
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="Increase output verbosity.")
+
     return parser
 
 
@@ -71,8 +78,9 @@ def main():
     # Get the data directory from the command line arguments
     parser = get_parser()
     args = parser.parse_args()
+    verbose = args.verbose
     # Call function to find outliers.
-    print_outliers(args.data_directory)
+    print_outliers(args.data_directory, verbose)
 
 
 if __name__ == '__main__':

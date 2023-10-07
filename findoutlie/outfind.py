@@ -24,15 +24,15 @@ def load_fmri_data(fname, dim='4D'):
     
     Parametes
     ---------
-    fname: full path to image file
-        name of nibable fMRI image file
+    fname: string
+        full path to fMRIimage file
     dim: str
-    shape of returned data, either '4D' or '2D'
+        shape of returned data, either '4D' or '2D'
 
     Returns
     --------
-    data: 
-    4D vector with image data
+    data: numpy array
+        4D vector with image data
     """
     img = nib.load(fname)  # Loads the file
     data = img.get_fdata()  # Gets the data from the file
@@ -50,12 +50,14 @@ def get_data_files(data_directory):
     Parameters
     -----
     data_directory: string
-    path to data directory
+        path to data directory
 
     Returns
     -----
-    image_fnames: iterator to all image (.gz) files in data_directory
-    event_fnames: iterator to all event (.gz) files in data_directory
+    image_fnames: iterator
+        for all image (.gz) files in data_directory
+    event_fnames: iterator
+        for all event (.gz) files in data_directory
     """
     image_fnames = Path(data_directory).glob('**/sub-*.nii.gz')
     event_fnames = Path(data_directory).glob('**/sub-*.tsv')
@@ -69,11 +71,11 @@ def load_event_data(event):
     Parameters
     -----
     event: full path to event file
-    Event file for scan
+        Event file for scan
 
     Returns: 
     event: string
-    content of event file
+        content of event file
     """
     # Load the file. Skipping the first row (header) and get only first two columns (onset, duration)
     event_file = np.loadtxt(
@@ -109,13 +111,13 @@ def convolved_time_course(event_file, num_vols):
     Parameters:
     -----
     event_onset_and_duration: str
-    the event file with onset and duration (two columns)
+        the event file with onset and duration (two columns)
     num_vols: int
-    number of volumes in scan
+        number of volumes in scan
 
     Returns:
     convolved_time_course: numpy array
-    HRF model for data
+        HRF model for data
     """    
     TR = 3  # time between scans (3 Hz sampling rate), from the nib header file (pixdim)
     onsets_seconds = event_file[:, 0] # from column 1
@@ -172,13 +174,15 @@ def convolved_time_course(event_file, num_vols):
     return tr_hemo
 
 
-def find_outliers(data_directory):
+def find_outliers(data_directory, verbose=False):
     """ Return filenames and outlier indices for images in `data_directory`.
 
     Parameters
     ----------
     data_directory : str
         Directory containing containing images.
+    verbose: bool
+        display images and logs if True
 
     Returns
     -------
@@ -198,7 +202,7 @@ def find_outliers(data_directory):
         # the HRF time course, the y in our modeling
         convolved = convolved_time_course(event_file, num_vols)
         
-        outliers = evaluate_outlier_methods(data, convolved)
+        outliers = evaluate_outlier_methods(data, convolved, verbose=verbose)
         outlier_dict[fname] = outliers
         
         return outlier_dict  # TEMP adding a BREAK for debugging, ONLY RUN first IMG file. REMOVE
@@ -211,16 +215,16 @@ def remove_outliers(data, method):
     Parameters:
     ------
     data: numpy 4D array
-    a 4D fMRI image data
+        a 4D fMRI image data
     metohd: string
-    name of availabe outlier detection methods: 'z_score_detector', 'iqr_detector', 'DIVAR'
+        name of availabe outlier detection methods: 'z_score_detector', 'iqr_detector', 'DIVAR'
 
     Returns:
     ------
     filtered_data: numpy 4D array
-    a 4D fMRI image data without outliers
+        a 4D fMRI image data without outliers
     outliers: numpy 1D array
-    indicies of outliers in unfiltered data
+        indicies of outliers in unfiltered data
     """
     if method == 'z_score_detector':
         outliers = z_score_detector(data)
@@ -245,36 +249,36 @@ def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh', axes=None, title='
     Parametes:
     ---------
     data: numpy 4D array
-    a 4D fMRI image data
+        a 4D fMRI image data
     factors: list
-    a list of factors with numpy arrays of N shape for the GLM
+        a list of factors with numpy arrays of N shape for the GLM
     c: list
-    the control matrix for the GLM
+        the control matrix for the GLM
     otsu_mask: Bool
-    whether to apply otsu mask filtering on data
+        whether to apply otsu mask filtering on data
     mult_comp: str
-    the multiple comparison correction method: 'bonferroni', 'fdr_bh', 'holm' or 'sidak'
+        the multiple comparison correction method: 'bonferroni', 'fdr_bh', 'holm' or 'sidak'
     show: bool
-    wheter to display plots or notd
+        wheter to display plots or notd
     title: str
-    supplment title for plots
+        supplment title for plots
     slice: int
-    nr of slice in volume to plot
+        nr of slice in volume to plot
 
     Returns:
     --------
     X: numpy array
-    The design matrix
+        The design matrix
     Y: numpy array
-    The predicted value (y_hat)
+        The predicted value (y_hat)
     E: numpy array
-    The errors or residuals (Y - Y_hat)
+        The errors or residuals (Y - Y_hat)
     t: numpay array
-    t values per voxel
+        t values per voxel
     p: numpay array
-    p values per voxel
+        p values per voxel
     p_adj: numpay array
-    Multiple comparison corrected p-values per voxel
+        Multiple comparison corrected p-values per voxel
     """
     N = data.shape[-1]
     if otsu_mask:
@@ -358,22 +362,22 @@ def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh', axes=None, title='
     return X, Y, E, t, p, p_adj
 
 
-def evaluate_outlier_methods(data, convolved, show=True):
+def evaluate_outlier_methods(data, convolved, verbose=False):
     """Run different outlier detction methods and select the best one
     
     Parameters:
     -------
     data: 4D numpy array
-    The 4D nibable image data
+        The 4D nibable image data
     convolved: 1D numpy array
-    The hemodynamic response model
-    show: Bool
-    sets whether to display plots
+        The hemodynamic response model
+    verbose: bool
+        display images and print logs
 
     Returns:
     -------
     outliers_best_method: numpy array
-    indices of outliers from the best outlier detection method
+        indices of outliers from the best outlier detection method
     """
     methods = ['z_score_detector', 'iqr_detector'] #, 'DIVAR']
     outlier_perf = {}
@@ -411,7 +415,7 @@ def evaluate_outlier_methods(data, convolved, show=True):
         outlier_perf[method] = {'MRSS before': {
             MRSS[0]}, 'MRSS after': MRSS[1], 'drop (%)': drop, 'outliers': outliers}
 
-        if show:
+        if verbose:
             fig.suptitle(f't, p and p_adj values: {method} method gives a {drop}% drop in MRSS.\n\
             Original on top and filtered below for slice nr: {slice}')
             plt.show()
