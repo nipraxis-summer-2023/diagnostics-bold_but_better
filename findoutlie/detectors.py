@@ -52,7 +52,11 @@ def iqr_detector(measures, iqr_proportion=1.5):
     upper_bound = Q3 + IQR * iqr_proportion # upper outlier
     lower_bound = Q1 - IQR * iqr_proportion # lower outlier
 
-    return np.logical_or(measures > upper_bound, measures < lower_bound)   
+    outliers_matrix = np.logical_or(measures > upper_bound, measures < lower_bound)   
+    outlier_indices = np.where(outliers_matrix)[0]
+
+    return np.unique(outlier_indices)
+
 
 
 def vol_mean(data):
