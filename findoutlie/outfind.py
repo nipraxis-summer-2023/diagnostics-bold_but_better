@@ -1,6 +1,5 @@
 from statsmodels.stats.multitest import multipletests
 from scipy import stats
-import scipy.stats as statsdd
 import numpy.linalg as npl
 from pathlib import Path
 import nibabel as nib
@@ -27,6 +26,8 @@ def load_fmri_data(fname, dim='4D'):
     ---------
     fname: full path to image file
         name of nibable fMRI image file
+    dim: str
+    shape of returned data, either '4D' or '2D'
 
     Returns
     --------
@@ -113,7 +114,7 @@ def convolved_time_course(event_file, num_vols):
     number of volumes in scan
 
     Returns:
-    convolved_time_course: 
+    convolved_time_course: numpy array
     HRF model for data
     """    
     TR = 3  # time between scans (3 Hz sampling rate), from the nib header file (pixdim)
@@ -218,7 +219,7 @@ def remove_outliers(data, method):
     ------
     filtered_data: numpy 4D array
     a 4D fMRI image data without outliers
-    outliers: numpy array
+    outliers: numpy 1D array
     indicies of outliers in unfiltered data
     """
     if method == 'z_score_detector':
@@ -239,8 +240,40 @@ def remove_outliers(data, method):
 
 
 def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh', show=False, title=''):
-    """General linear model"""
+    """General linear model
+    
+    Parametes:
+    ---------
+    data: numpy 4D array
+    a 4D fMRI image data
+    factors: list
+    a list of factors with numpy arrays of N shape for the GLM
+    c: list
+    the control matrix for the GLM
+    otsu_mask: Bool
+    whether to apply otsu mask filtering on data
+    mult_comp: str
+    the multiple comparison correction method: 'bonferroni', 'fdr_bh', 'holm' or 'sidak'
+    show: bool
+    wheter to display plots or notd
+    title: str
+    supplment title for plots
 
+    Returns:
+    --------
+    X: numpy array
+    The design matrix
+    Y: numpy array
+    The predicted value (y_hat)
+    E: numpy array
+    The errors or residuals (Y - Y_hat)
+    t: numpay array
+    t values per voxel
+    p: numpay array
+    p values per voxel
+    p_adj: numpay array
+    Multiple comparison corrected p-values per voxel
+    """
     N = data.shape[-1]
     if otsu_mask:
         mean = np.mean(data, axis=-1)
@@ -324,6 +357,20 @@ def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh', show=False, title=
 
 
 def evaluate_outlier_methods(data, convolved):
+    """Run different outlier detction methods and select the best one
+    
+    Parameters:
+    -------
+    data: 4D numpy array
+    The 4D nibable image data
+    convolved: 1D numpy array
+    The hemodynamic response model
+
+    Returns:
+    -------
+    outliers_best_method: numpy array
+    indices of outliers from the best outlier detection method
+    """
     data = data[...,1:] # knock of first scan
     convolved = convolved[1:]  # knock of first item for consistency
 
@@ -360,6 +407,8 @@ def evaluate_outlier_methods(data, convolved):
     # print(outlier_perf)
     best_method = max(outlier_perf.keys(),
                       key=lambda x: outlier_perf[x]['drop (%)'])
+    
+    outliers_best_method = outlier_perf[best_method]['outliers']
 
-    return outlier_perf[best_method]['outliers']
+    return outliers_best_method
 
