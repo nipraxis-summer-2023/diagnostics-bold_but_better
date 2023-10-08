@@ -205,7 +205,7 @@ def find_outliers(data_directory, verbose=False):
         outliers = evaluate_outlier_methods(data, convolved, verbose=verbose)
         outlier_dict[fname] = outliers
         
-        return outlier_dict  # TEMP adding a BREAK for debugging, ONLY RUN first IMG file. REMOVE
+        # return outlier_dict  # TEMP adding a BREAK for debugging, ONLY RUN first IMG file. REMOVE
 
     return outlier_dict
 
