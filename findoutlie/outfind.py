@@ -416,16 +416,26 @@ def evaluate_outlier_methods(data, convolved, verbose=False):
             MRSS[0]}, 'MRSS after': MRSS[1], 'drop (%)': drop, 'outliers': outliers}
 
         if verbose:
-            fig.suptitle(f't, p and p_adj values: {method} method gives a {drop}% drop in MRSS.\n\
+            print(
+                f'\nApplying outlier detection method: \033[1m{method}\033[0m')
+            escaped_method = method.replace('_', '\\_')
+            fig.suptitle(f't, p and p_adj values: $\\bf{{{escaped_method}}}$ method gives a {drop}% drop in MRSS.\n\
             Original on top and filtered below for slice nr: {slice}')
             plt.show()
             plt.close(fig)
+            print(f'\tMRSS for dataset before removing outliers: {np.around(MRSS[0], 4)}\n \
+                MRSS for dataset after removing outliers: {np.around(MRSS[1], 4)},\n \
+                a reduction of \033[1m{drop}%\033[0m\n\n')
 
     # print(outlier_perf)
     best_method = max(outlier_perf.keys(),
                       key=lambda x: outlier_perf[x]['drop (%)'])
     
     outliers_best_method = outlier_perf[best_method]['outliers']
+
+    if verbose:
+        print(f'\033[1m{best_method}\033[0m gives the biggest reduction on MRSS and is therefore selected\n\
+            with file name and indices of outliers per volume as follows:\n')
 
     return outliers_best_method
 
