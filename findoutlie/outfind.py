@@ -202,7 +202,7 @@ def find_outliers(data_directory, verbose=False):
         # the HRF time course, the y in our modeling
         convolved = convolved_time_course(event_file, num_vols)
         
-        outliers = evaluate_outlier_methods(data, convolved, verbose=verbose)
+        outliers = evaluate_outlier_methods(fname, data, convolved, verbose=verbose)
         outlier_dict[fname] = outliers
         
         # return outlier_dict  # TEMP adding a BREAK for debugging, ONLY RUN first IMG file. REMOVE
@@ -362,11 +362,63 @@ def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh', axes=None, title='
     return X, Y, E, t, p, p_adj
 
 
-def evaluate_outlier_methods(data, convolved, verbose=False):
+def write_educated_guess_to_file(outlier_dict, file_name):
+    """
+    Append educated guesses about outliers to a text file, based on outlier indices from different detection methods.
+    
+    Parameters:
+    -----------
+    outlier_dict : dict
+        Dictionary containing outliers and some statistics, indexed by the detection method used.
+    file_name : str
+        The name of the file being analysed, to be written in the text file for reference.
+        
+    Returns:
+    --------
+    None
+    
+    Side Effect:
+    ------------
+    Appends educated guesses to 'educated_guess.txt' based on the outlier indices provided in `outlier_dict`.
+    """
+    with open('educated_guess.txt', 'a') as f:
+        f.write(f"--- File: {file_name} ---\n\n")
+
+        common_outliers = set(outlier_dict['z_score_detector']['outliers']) & \
+            set(outlier_dict['iqr_detector']['outliers']) & \
+            set(outlier_dict['dvars']['outliers'])
+
+        if common_outliers:
+            f.write("Common Outliers in all 3 methods: Most likely significant issues, such as extreme motion or hardware failure.\n\n")
+            return
+
+        z_and_d = set(outlier_dict['z_score_detector']['outliers']) & set(
+            outlier_dict['dvars']['outliers'])
+        z_and_i = set(outlier_dict['z_score_detector']['outliers']) & set(
+            outlier_dict['iqr_detector']['outliers'])
+        i_and_d = set(outlier_dict['iqr_detector']['outliers']) & set(
+            outlier_dict['dvars']['outliers'])
+
+        if z_and_d:
+            f.write(
+                "Z-Score & DIVAR outliers in common: Likely due to widespread changes; could be task-related or head motion.\n")
+        if z_and_i:
+            f.write(
+                "Z-Score & IQR outliers in common: Localised but significant spikes; possible artifact or physiological change.\n")
+        if i_and_d:
+            f.write(
+                "IQR & DIVAR outliers in common: Unusual data points, could be related to complex motion or equipment issues.\n")
+
+        f.write("\n")
+
+
+def evaluate_outlier_methods(fname, data, convolved, verbose=False):
     """Run different outlier detction methods and select the best one
     
     Parameters:
     -------
+    fname: str
+        name of image file
     data: 4D numpy array
         The 4D nibable image data
     convolved: 1D numpy array
@@ -427,10 +479,13 @@ def evaluate_outlier_methods(data, convolved, verbose=False):
                 MRSS for dataset after removing outliers: {np.around(MRSS[1], 4)},\n \
                 a reduction of \033[1m{drop}%\033[0m\n\n')
 
+    write_educated_guess_to_file(
+        outlier_perf, fname)  # write to text file
+
     # print(outlier_perf)
     best_method = max(outlier_perf.keys(),
                       key=lambda x: outlier_perf[x]['drop (%)'])
-    
+
     outliers_best_method = outlier_perf[best_method]['outliers']
 
     if verbose:
