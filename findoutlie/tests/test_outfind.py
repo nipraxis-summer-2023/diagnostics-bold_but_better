@@ -1,6 +1,10 @@
+from unittest.mock import patch, mock_open
+import json
+import os
+import tempfile
 import pytest
 from unittest.mock import patch
-from findoutlie.outfind import load_fmri_data, get_data_files, load_event_data, hrf, convolved_time_course, find_outliers, remove_outliers, glm, evaluate_outlier_methods
+from findoutlie.outfind import load_fmri_data, get_data_files, load_event_data, hrf, convolved_time_course, find_outliers, remove_outliers, glm, evaluate_outlier_methods, write_educated_guess_to_file
 import numpy as np
 import unittest
 from unittest.mock import patch, Mock
@@ -122,8 +126,14 @@ def test_find_outliers():
 def test_remove_outliers():
     pass
 
+
 def test_glm():
     pass
+
+
+def test_write_educated_guess_to_file():
+    pass
+
 
 def test_evaluate_outlier_methods():
     pass
@@ -136,4 +146,8 @@ if __name__ == '__main__':
     test_hrf()
     test_convolved_time_course()
     test_find_outliers()
+    test_remove_outliers()
+    test_glm()
+    test_write_educated_guess_to_file()
+    test_evaluate_outlier_methods()
     print("All tests passed. Celebrate responsibly.")

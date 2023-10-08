@@ -462,7 +462,7 @@ def evaluate_outlier_methods(fname, data, convolved, verbose=False):
             df = vol.shape[0] - npl.matrix_rank(vol)
             # Mean residual sum of squares
             MRSS.append(RSS / df)
-        drop = np.around(1 - MRSS[1]/MRSS[0], 4) * 100
+        drop = round(np.around(1 - MRSS[1]/MRSS[0], 4) * 100, 4)
         # print(f'Drop in MRSS: {(1 - MRSS[1]/MRSS[0]) * 100:.2f}%')
         outlier_perf[method] = {'MRSS before': {
             MRSS[0]}, 'MRSS after': MRSS[1], 'drop (%)': drop, 'outliers': outliers}
@@ -471,7 +471,8 @@ def evaluate_outlier_methods(fname, data, convolved, verbose=False):
             print(
                 f'\nApplying outlier detection method: \033[1m{method}\033[0m')
             escaped_method = method.replace('_', '\\_')
-            fig.suptitle(f't, p and p_adj values: $\\bf{{{escaped_method}}}$ method gives a {drop}% drop in MRSS.\n\
+            fig.suptitle(f'File: {fname}\n \
+            t, p and p_adj values: $\\bf{{{escaped_method}}}$ method gives a {drop}% drop in MRSS.\n\
             Original on top and filtered below for slice nr: {slice}')
             plt.show()
             plt.close(fig)

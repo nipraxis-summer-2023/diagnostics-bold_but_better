@@ -69,7 +69,15 @@ You should see an output like this:
 
 ### What is going on?
 
-The script tries 3 different outlier detection methods and uses mean root sum of squares (MRSS) as the criteria for "best" method. The method that gives the biggest reduction on MRSS is selected and indices of outliers per image file returned, based on that method. To see what is going on under the hood, turn on the verbose parameter:
+The script tries 3 different outlier detection methods and uses mean root sum of squares (MRSS) as the criteria for "best" method. The method that gives the biggest reduction on MRSS is selected and indices of outliers per image file returned, based on that method.
+
+The script writes out a file called educated_guess.txt which makes an educated guess about the outliers per image file, based on the outliers found with the three outlier dection methods (z-score detector, interquartile range detector and DIVARs).
+
+```bash
+educated_guess.txt
+```
+
+To see what is going on under the hood whilst the script is running, turn on the verbose parameter:
 
 ```bash
 python3 scripts/find_outliers.py data -v
@@ -81,7 +89,6 @@ python3 scripts/find_outliers.py data --verbose
 
 You should see a 3 by 2 subplots of t, p and multiple comparison (p_adjusted) values of a brain slice, before and after applying the outlier detection method. Which slice you see and which multiple comparison method is applied can be configured by using the glm function directly from the findoutlie/outfind.py module.
 You should also see logs from the "best" outlier detection method selection process.
-
 
 ## Contributing
 
