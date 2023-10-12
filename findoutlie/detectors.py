@@ -13,50 +13,42 @@ requirements are met and raise an error otherwise.
 # Any imports you need
 import numpy as np
 
-def iqr_detector(measures, iqr_proportion=1.5):
-    """ Detect outliers in `measures` using interquartile range.
-
-    Returns a boolean vector of same length as `measures`, where True means the
-    corresponding value in `measures` is an outlier.
-
-    Call Q1, Q2 and Q3 the 25th, 50th and 75th percentiles of `measures`.
-
-    The interquartile range (IQR) is Q3 - Q1.
-
-    An outlier is any value in `measures` that is either:
-
-    * > Q3 + IQR * `iqr_proportion` or
-    * < Q1 - IQR * `iqr_proportion`.
-
-    See: https://en.wikipedia.org/wiki/Interquartile_range
-
-    Parameters
-    ----------
-    measures : 1D array
-        Values for which we will detect outliers
-    iqr_proportion : float, optional
-        Scalar to multiply the IQR to form upper and lower threshold (see
-        above).  Default is 1.5.
-
-    Returns
-    -------
-    outlier_tf : 1D boolean array
-        A boolean vector of same length as `measures`, where True means the
-        corresponding value in `measures` is an outlier.
+def iqr_detector(data, iqr_factor=1.5, spatial_threshold=0.05):
+    """
+    Identify outliers along the 4th dimension (time) using the IQR method.
+    
+    Parameters:
+        data (ndarray): 4D fMRI data with shape (x, y, z, t).
+        iqr_factor (float): Scaling factor for IQR. Default is 1.5.
+        spatial_threshold (float): Proportion of voxels that must agree for a time point to be an outlier.
+        
+    Returns:
+        outlier_time_indices (ndarray): Indices in the 4th dimension where outliers occur.
     """
 
-    percentiles = [25, 75]
-    result = np.percentile(measures, q=percentiles)
-    Q1, Q3 = result
+    # Flatten the first three dimensions to focus on the 4th (time)
+    reshaped_data = data.reshape(-1, data.shape[-1])
+
+    # Calculate Q1, Q3 and IQR
+    Q1 = np.percentile(reshaped_data, 25, axis=-1)
+    Q3 = np.percentile(reshaped_data, 75, axis=-1)
     IQR = Q3 - Q1
-    upper_bound = Q3 + IQR * iqr_proportion # upper outlier
-    lower_bound = Q1 - IQR * iqr_proportion # lower outlier
 
-    outliers_matrix = np.logical_or(measures > upper_bound, measures < lower_bound)   
-    outlier_indices = np.where(outliers_matrix)[0]
+    # Compute the outlier bounds
+    lower_bound = Q1 - iqr_factor * IQR
+    upper_bound = Q3 + iqr_factor * IQR
 
-    return np.unique(outlier_indices)
+    # Detect outliers in the 4th dimension
+    outliers = (reshaped_data < lower_bound[:, np.newaxis]) | (
+        reshaped_data > upper_bound[:, np.newaxis])
 
+    # Calculate the proportion of outliers for each time point
+    outlier_proportion = np.mean(outliers, axis=0)
+
+    # Find time indices where the proportion of outliers exceeds the spatial threshold
+    outlier_time_indices = np.where(outlier_proportion > spatial_threshold)[0]
+
+    return outlier_time_indices
 
 
 def vol_mean(data):
@@ -153,7 +145,9 @@ def dvars_detector(img_data, z_value=1.96):
 
     dvars_outliers = np.where(dvals > dynamic_threshold)[0]
     outlier_volumes = np.unique(
-        np.concatenate([dvars_outliers, dvars_outliers + 1]))
+        np.concatenate([dvars_outliers, dvars_outliers + 1])) # adding one, as outlier could be after
+
+    outlier_volumes = outlier_volumes[outlier_volumes < img_data.shape[3]] # make sure we don't go out of bounds by adding one
 
     return outlier_volumes
 
