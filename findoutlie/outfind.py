@@ -174,7 +174,7 @@ def convolved_time_course(event_file, num_vols):
     return tr_hemo
 
 
-def find_outliers(data_directory, verbose=False):
+def find_outliers(data_directory, verbose=False, show=False, conservative=False):
     """ Return filenames and outlier indices for images in `data_directory`.
 
     Parameters
@@ -182,7 +182,11 @@ def find_outliers(data_directory, verbose=False):
     data_directory : str
         Directory containing containing images.
     verbose: bool
-        display images and logs if True
+        print logs
+    show: bool
+        display images
+    conservative: bool
+        combine outliers from all methods if True
 
     Returns
     -------
@@ -196,13 +200,20 @@ def find_outliers(data_directory, verbose=False):
     outlier_dict = {} # empty outlier dictionary
     for fname, event in zip(image_fnames, event_fnames): # loop through all files/events in folders
         data = load_fmri_data(fname)  # Gets the 4D data from the file
+
+        # Check for empty data
+        if data.size == 0:
+            print(f"Warning: Empty data for file {fname}. Skipping.")
+            continue  # Skip to next iteration
+
         num_vols = data.shape[-1] # number of volumes in scan
         # Gets the corresponding event file
         event_file = load_event_data(event)
         # the HRF time course, the y in our modeling
         convolved = convolved_time_course(event_file, num_vols)
         
-        outliers = evaluate_outlier_methods(fname, data, convolved, verbose=verbose)
+        outliers = evaluate_outlier_methods(
+            fname, data, convolved, verbose=verbose, show=show, conservative=conservative)
         outlier_dict[fname] = outliers
         
         # return outlier_dict  # TEMP adding a BREAK for debugging, ONLY RUN first IMG file. REMOVE
@@ -226,19 +237,23 @@ def remove_outliers(data, method):
     outliers: numpy 1D array
         indicies of outliers in unfiltered data
     """
+    outliers = np.array([])
     if method == 'z_score_detector':
         outliers = z_score_detector(data)
         # print(f'outliers z: {outliers}')
     elif method == 'iqr_detector':
-        outliers = iqr_detector(data)
+        # setting iqr factor to 1.5 spatial threshold to 2%
+        outliers = iqr_detector(data, iqr_factor=1.5, spatial_threshold=0.02)
         # print(f'outliers iqr: {outliers}')
     elif method == 'dvars':
-        outliers = dvars_detector(data, z_value=1.645) # setting z value at 90% CI
+        # setting z value at 90% CI and spatial threshold to 2%
+        outliers = dvars_detector(data, z_value=1.645)
+        # print(f'outliers divars: {outliers}')
     else:
         return NotImplemented
     
     filtered_data = np.delete(data, outliers, axis=3)
-    # print(f'data shape {data.shape}, filtered shape {filtered_data.shape}')
+    assert len(outliers) + filtered_data.shape[-1] == data.shape[-1]
 
     return filtered_data, outliers # return data without outliers and outlier indices
 
@@ -280,9 +295,17 @@ def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh', axes=None, title='
     p_adj: numpay array
         Multiple comparison corrected p-values per voxel
     """
+    if data.size == 0:
+        raise ValueError("The input data array is empty. Cannot proceed.")
     N = data.shape[-1]
     if otsu_mask:
         mean = np.mean(data, axis=-1)
+        # Check for NaN or infinite values in mean
+        if np.isnan(mean).any() or np.isinf(mean).any():
+            print(
+                "Warning: NaN or infinite values detected in mean. Replacing with zeros.")
+            mean = np.nan_to_num(mean)
+
         thresh = threshold_otsu(mean)
         mask = mean > thresh
         # plt.imshow(mask[:, :, 15], cmap='gray')
@@ -292,7 +315,11 @@ def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh', axes=None, title='
         mask = None  # no mask
 
     if mask is not None:
-        Y = np.reshape(data[mask], (-1, N))
+        if np.any(mask):  # Make sure mask is not empty
+            Y = np.reshape(data[mask], (-1, N))
+        else:
+            print("Warning: The mask didn't capture any data. Proceeding without masking.")
+            Y = np.reshape(data, (-1, N))
     else:
         Y = np.reshape(data, (-1, N))
 
@@ -412,7 +439,7 @@ def write_educated_guess_to_file(outlier_dict, file_name):
         f.write("\n")
 
 
-def evaluate_outlier_methods(fname, data, convolved, verbose=False):
+def evaluate_outlier_methods(fname, data, convolved, verbose=False, show=False, conservative=False):
     """Run different outlier detction methods and select the best one
     
     Parameters:
@@ -424,7 +451,11 @@ def evaluate_outlier_methods(fname, data, convolved, verbose=False):
     convolved: 1D numpy array
         The hemodynamic response model
     verbose: bool
-        display images and print logs
+        print logs
+    show: bool
+        display images
+    conservative: bool
+        combine outliers from all methods
 
     Returns:
     -------
@@ -433,14 +464,18 @@ def evaluate_outlier_methods(fname, data, convolved, verbose=False):
     """
     methods = ['z_score_detector', 'iqr_detector', 'dvars']
     outlier_perf = {}
+    data = data[..., 1:]  # knock of first scan
+    convolved = convolved[1:]  # knock of first item for consistency
+    if verbose:
+        print(f'\n------{fname}------')
     for method in methods:
         # Create a 2x3 subplot grid, if show=True
         # Create a new figure for each method
         fig, axes = plt.subplots(2, 3, figsize=(15, 10))
         slice = 15 # set which slice to display
 
-        data = data[..., 1:]  # knock of first scan
-        convolved = convolved[1:]  # knock of first item for consistency
+        # data = data[..., 1:]  # knock of first scan
+        # convolved = convolved[1:]  # knock of first item for consistency
         # contrast matrix: Contrast the difference of the slope from 0
         c = np.array([0, 1])
         X, Y, E, t, p, p_adj = glm(
@@ -450,6 +485,14 @@ def evaluate_outlier_methods(fname, data, convolved, verbose=False):
         # Remove outliers
         data_filtered, outliers = remove_outliers(data, method)
         convolved_filtered = np.delete(convolved, outliers)
+
+        # Check for empty filtered data
+        if data_filtered.size == 0 or convolved_filtered.size == 0:
+            print(
+                f"Warning: {method} considered all data points to be outliers for file: {fname}. \nSkipping method...")
+            outlier_perf[method] = {'MRSS before': {0}, 'MRSS after': 0, 'drop (%)': 0, 'outliers': []}
+            continue  # Skip to the next iteration
+
         X_filtered, y_filtered, E_filt, t_filt, p_filt, p_adj_filt = glm(
             data_filtered, [convolved_filtered], c, otsu_mask=True, mult_comp='fdr_bh', axes=axes[1, :], title='Filtered data', slice=slice)
 
@@ -468,30 +511,59 @@ def evaluate_outlier_methods(fname, data, convolved, verbose=False):
             MRSS[0]}, 'MRSS after': MRSS[1], 'drop (%)': drop, 'outliers': outliers}
 
         if verbose:
-            print(
-                f'\nApplying outlier detection method: \033[1m{method}\033[0m')
+            print(f'Applying outlier detection method: \033[1m{method}\033[0m')
+            print(f'\tMRSS for dataset before/after removing outliers: {np.around(MRSS[0], 4)} / {np.around(MRSS[1], 4)},\n \
+            a reduction of \033[1m{drop}%\033[0m. \n\
+            Indices of outliers: {outlier_perf[method]["outliers"]}')
+        if show:
             escaped_method = method.replace('_', '\\_')
             fig.suptitle(f'File: {fname}\n \
             t, p and p_adj values: $\\bf{{{escaped_method}}}$ method gives a {drop}% drop in MRSS.\n\
             Original on top and filtered below for slice nr: {slice}')
             plt.show()
             plt.close(fig)
-            print(f'\tMRSS for dataset before removing outliers: {np.around(MRSS[0], 4)}\n \
-                MRSS for dataset after removing outliers: {np.around(MRSS[1], 4)},\n \
-                a reduction of \033[1m{drop}%\033[0m\n\n')
-
+        
+        plt.close(fig)
+    
     write_educated_guess_to_file(
         outlier_perf, fname)  # write to text file
-
-    # print(outlier_perf)
+    
     best_method = max(outlier_perf.keys(),
-                      key=lambda x: outlier_perf[x]['drop (%)'])
-
+                      key=lambda x: outlier_perf[x]['drop (%)']) # find best method, one with max reductin on MRSS
     outliers_best_method = outlier_perf[best_method]['outliers']
 
     if verbose:
-        print(f'\033[1m{best_method}\033[0m gives the biggest reduction on MRSS and is therefore selected\n\
-            with file name and indices of outliers per volume as follows:\n')
+        print(f'\nOf these outlier detection methods, the biggest reduction on MRSS comes from \033[1m{best_method}\033[0m method\n')
 
-    return outliers_best_method
+    if not conservative:
+        return outliers_best_method
+    else:
+        ## Let's combine outliers from all three methods
+        common_outliers = set(outlier_perf['z_score_detector']['outliers']) | set(
+            outlier_perf['iqr_detector']['outliers']) | set(outlier_perf['dvars']['outliers'])
+        common_outliers_all = np.asarray([int(x) for x in set(common_outliers)])
+        common_outliers_all.sort()
+
+        # Remove all common outliers
+        data_filt_all = np.delete(data, common_outliers_all, axis=3)
+        convolved_filt_all = np.delete(convolved, common_outliers_all)
+        X_filt_all, y_filt_all, E_filt_all, t_filt_all, p_filt_all, p_adj_filt_all = glm(
+            data_filt_all, [convolved_filt_all], c, otsu_mask=True, mult_comp='fdr_bh', axes=axes[1, :], title='All methods filtered', slice=slice)
+        RSS_all = np.sum(E_filt_all ** 2)
+        # Degrees of freedom: n - no independent columns in X
+        df_all = X_filt_all.shape[0] - npl.matrix_rank(X_filt_all)
+        # Mean residual sum of squares
+        MRSS_all = RSS_all / df_all
+        drop_all = round(np.around(1 - MRSS_all/MRSS[0], 4) * 100, 4)
+        ##
+
+        if verbose:
+            print(
+                f'###\nCombining outliers from all methods:')
+            print(f'MRSS for dataset before / after removing outliers: {np.around(MRSS[0], 4)} / {MRSS_all},\n \
+        a reduction of \033[1m{drop_all}%\033[0m.\n\
+ All outliers: {common_outliers_all}\n\
+### \n')
+
+        return common_outliers_all
 
