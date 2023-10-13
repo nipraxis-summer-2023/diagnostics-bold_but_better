@@ -13,46 +13,42 @@ requirements are met and raise an error otherwise.
 # Any imports you need
 import numpy as np
 
-def iqr_detector(measures, iqr_proportion=1.5):
-    """ Detect outliers in `measures` using interquartile range.
-
-    Returns a boolean vector of same length as `measures`, where True means the
-    corresponding value in `measures` is an outlier.
-
-    Call Q1, Q2 and Q3 the 25th, 50th and 75th percentiles of `measures`.
-
-    The interquartile range (IQR) is Q3 - Q1.
-
-    An outlier is any value in `measures` that is either:
-
-    * > Q3 + IQR * `iqr_proportion` or
-    * < Q1 - IQR * `iqr_proportion`.
-
-    See: https://en.wikipedia.org/wiki/Interquartile_range
-
-    Parameters
-    ----------
-    measures : 1D array
-        Values for which we will detect outliers
-    iqr_proportion : float, optional
-        Scalar to multiply the IQR to form upper and lower threshold (see
-        above).  Default is 1.5.
-
-    Returns
-    -------
-    outlier_tf : 1D boolean array
-        A boolean vector of same length as `measures`, where True means the
-        corresponding value in `measures` is an outlier.
+def iqr_detector(data, iqr_factor=1.5, spatial_threshold=0.05):
+    """
+    Identify outliers along the 4th dimension (time) using the IQR method.
+    
+    Parameters:
+        data (ndarray): 4D fMRI data with shape (x, y, z, t).
+        iqr_factor (float): Scaling factor for IQR. Default is 1.5.
+        spatial_threshold (float): Proportion of voxels that must agree for a time point to be an outlier.
+        
+    Returns:
+        outlier_time_indices (ndarray): Indices in the 4th dimension where outliers occur.
     """
 
-    percentiles = [25, 75]
-    result = np.percentile(measures, q=percentiles)
-    Q1, Q3 = result
-    IQR = Q3 - Q1
-    upper_bound = Q3 + IQR * iqr_proportion # upper outlier
-    lower_bound = Q1 - IQR * iqr_proportion # lower outlier
+    # Flatten the first three dimensions to focus on the 4th (time)
+    reshaped_data = data.reshape(-1, data.shape[-1])
 
-    return np.logical_or(measures > upper_bound, measures < lower_bound)   
+    # Calculate Q1, Q3 and IQR
+    Q1 = np.percentile(reshaped_data, 25, axis=-1)
+    Q3 = np.percentile(reshaped_data, 75, axis=-1)
+    IQR = Q3 - Q1
+
+    # Compute the outlier bounds
+    lower_bound = Q1 - iqr_factor * IQR
+    upper_bound = Q3 + iqr_factor * IQR
+
+    # Detect outliers in the 4th dimension
+    outliers = (reshaped_data < lower_bound[:, np.newaxis]) | (
+        reshaped_data > upper_bound[:, np.newaxis])
+
+    # Calculate the proportion of outliers for each time point
+    outlier_proportion = np.mean(outliers, axis=0)
+
+    # Find time indices where the proportion of outliers exceeds the spatial threshold
+    outlier_time_indices = np.where(outlier_proportion > spatial_threshold)[0]
+
+    return outlier_time_indices
 
 
 def vol_mean(data):
@@ -99,7 +95,7 @@ def z_score_detector(img_data, n_std=2):
 
     return outliers
 
-def dvars(img_data, z_value=2):
+def dvars(img_data):
     """ Calculate dvars metric on Nibabel image `img`
 
     The dvars calculation between two volumes is defined as the square root of
@@ -110,33 +106,23 @@ def dvars(img_data, z_value=2):
 
     Parameters
     ----------
-    img_data : nibabel image data, 4D vector
-    z_value: z value threshold for outlier, default 2
+    img_data : numpy 4D array
+        nibabel image data, 4D vector
 
     Returns
     -------
-    dvars : 1D array of dvars in `img_data`.
+    dvars : numpy array
+        1D array of dvars in `img_data`.
     """
 
     if img_data.size == 0:
         return np.array([])
-    # element wise difference along tha last axis, i.e. volume differences
+
     vol_diff = np.diff(img_data, axis=-1)
-    # spatial RMS list. Note that the mean is for first three axis (volume)
-    dvars = np.sqrt(np.mean(vol_diff ** 2, axis=(0, 1, 2)))
-    
-    # Diagnostic Plot
-    # import matplotlib.pyplot as plt
-    # plt.plot(dvars)
-    # plt.axhline(y=dynamic_threshold, color='r', linestyle='--')
-    # plt.xlabel('Volume Transition')
-    # plt.ylabel('DVARS Value')
-    # plt.title(f'DVARS Plot with Dynamic Threshold = {dynamic_threshold}')
-    # plt.show()
-    return dvars
+    return np.sqrt(np.mean(vol_diff ** 2, axis=(0, 1, 2)))
     
 
-def dvars_detector(img_data, z_value=2):
+def dvars_detector(img_data, z_value=1.96):
     """ Get outliers in Nibabel image `img` based on DVARs calcuation
     
     Parameters
@@ -152,21 +138,16 @@ def dvars_detector(img_data, z_value=2):
 
     if img_data.size == 0:
         return np.array([])
-    # element wise difference along tha last axis, i.e. volume differences
-    vol_diff = np.diff(img_data, axis=-1)
-    # spatial RMS list. Note that the mean is for first three axis (volume)
-    dvals = dvars(img_data, z_value=z_value)
 
-    # Calculate dynamic threshold based on DVARS
-    mean = np.mean(dvals)
-    std = np.std(dvals)
+    dvals = dvars(img_data)
+    mean, std = np.mean(dvals), np.std(dvals)
     dynamic_threshold = mean + z_value * std
 
     dvars_outliers = np.where(dvals > dynamic_threshold)[0]
+    outlier_volumes = np.unique(
+        np.concatenate([dvars_outliers, dvars_outliers + 1])) # adding one, as outlier could be after
 
-    # Include both endpoints of the flagged transitions as both i and i+1 (increase in BOLD) could be outliers
-    # Note: Using np.unique to remove duplicates
-    outlier_volumes = np.unique(np.concatenate(
-        [dvars_outliers, dvars_outliers + 1]))
+    outlier_volumes = outlier_volumes[outlier_volumes < img_data.shape[3]] # make sure we don't go out of bounds by adding one
 
     return outlier_volumes
+

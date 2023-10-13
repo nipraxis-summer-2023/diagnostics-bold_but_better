@@ -27,5 +27,7 @@ requires = [
     'numpy',
     'scipy',
     'matplotlib',
+    'statsmodels',
+    'scikit-image'
 ]
 requires-python=">=3.6"

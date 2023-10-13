@@ -1,5 +1,8 @@
 nibabel
 numpy
-scipy
+scipy>=1.1.1
 matplotlib
 nipraxis
+statsmodels>=0.13.2
+scikit-image>=0.19.2
+
