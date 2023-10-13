@@ -132,7 +132,32 @@ def test_glm():
 
 
 def test_write_educated_guess_to_file():
-    pass
+    temp_dir = Path(tempfile.mkdtemp())
+    temp_file = temp_dir / 'educated_guess.txt'
+    outlier_dict = {
+        'z_score_detector': {'outliers': [1, 2, 3]},
+        'iqr_detector': {'outliers': [3, 4, 5]},
+        'dvars': {'outliers': [5, 6, 7]}
+    }
+    file_name = "test_file"
+
+    # Run your function
+    write_educated_guess_to_file(outlier_dict, file_name, temp_file)
+
+    # Check if file has been created
+    assert temp_file.exists()
+
+    # Read the file content
+    content = temp_file.read_text()
+
+    # Assertions for expected text in the file
+    assert f"--- File: {file_name} ---" in content
+    # No common outliers in all three methods in this test
+    assert "Common Outliers in all 3 methods" not in content
+    # No common outliers between Z-Score and DIVAR
+    assert "Z-Score & DIVAR outliers in common" not in content
+    assert "Z-Score & IQR outliers in common" in content  # There is a common outlier: 3
+    assert "IQR & DIVAR outliers in common" in content  # There is a common outlier: 5
 
 
 def test_evaluate_outlier_methods():

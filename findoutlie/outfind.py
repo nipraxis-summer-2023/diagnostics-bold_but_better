@@ -389,7 +389,7 @@ def glm(data, factors, c, otsu_mask=True, mult_comp='fdr_bh', axes=None, title='
     return X, Y, E, t, p, p_adj
 
 
-def write_educated_guess_to_file(outlier_dict, file_name):
+def write_educated_guess_to_file(outlier_dict, file_name, file_path=Path('educated_guess.txt')):
     """
     Append educated guesses about outliers to a text file, based on outlier indices from different detection methods.
     
@@ -399,6 +399,8 @@ def write_educated_guess_to_file(outlier_dict, file_name):
         Dictionary containing outliers and some statistics, indexed by the detection method used.
     file_name : str
         The name of the file being analysed, to be written in the text file for reference.
+    file_path : Path
+        The Path object pointing to the output text file.
         
     Returns:
     --------
@@ -408,7 +410,7 @@ def write_educated_guess_to_file(outlier_dict, file_name):
     ------------
     Appends educated guesses to 'educated_guess.txt' based on the outlier indices provided in `outlier_dict`.
     """
-    with open('educated_guess.txt', 'a') as f:
+    with open(file_path, 'a') as f:
         f.write(f"--- File: {file_name} ---\n\n")
 
         common_outliers = set(outlier_dict['z_score_detector']['outliers']) & \
